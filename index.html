@@ -133,6 +133,25 @@
   .intro-card p { color: var(--muted); font-size: 14px; line-height: 1.5; }
   .intro-card .kbd { background: #1e1e1e; border: 1px solid var(--line); padding: 1px 6px; border-radius: 4px; font-size: 12px; color: var(--ink); font-family: ui-monospace, Menlo, monospace; }
 
+  .chips {
+    display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 16px;
+  }
+  .chip {
+    background: transparent; color: var(--muted); border: 1px solid var(--line);
+    padding: 6px 12px; border-radius: 999px; font-size: 13px; font-weight: 600;
+    transition: all 0.12s ease;
+  }
+  .chip:hover { color: var(--ink); border-color: #3a3a3a; }
+  .chip.active {
+    background: var(--accent); color: #111; border-color: var(--accent);
+  }
+  .chip .count { opacity: 0.6; font-weight: 500; margin-left: 4px; font-size: 11px; }
+  .chip.active .count { opacity: 0.7; }
+  .field-label {
+    font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--muted); font-weight: 700; margin-top: 10px; margin-bottom: 4px;
+  }
+
   .toast {
     position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
     background: #1e1e1e; color: var(--ink); padding: 10px 16px; border-radius: 8px;
@@ -187,7 +206,9 @@
   <div class="card intro-card">
     <h2>NYC<span class="y">Guessr</span></h2>
     <p>You'll see a <b>live NYC traffic camera</b>. Guess where it is by dropping a pin on the map. Closer = more points. 5 rounds.</p>
-    <p style="font-size:13px;">Tip: look for subway stops, building signs, bridge silhouettes, skyline angles. Some feeds are dark/weather-ruined — you can <span class="kbd">skip</span> one per game.</p>
+    <div class="field-label">Area</div>
+    <div class="chips" id="area-chips"></div>
+    <p style="font-size:13px;">Tip: look for subway stops, building signs, bridge silhouettes, skyline angles. Some feeds are dark/weather-ruined — next round always spins you up a fresh one.</p>
     <button id="start-btn">Play</button>
   </div>
 </div>
@@ -213,7 +234,7 @@
     <div class="dots" id="final-dots"></div>
     <div class="rounds-list" id="final-rounds"></div>
     <button id="share-btn">Copy share card</button>
-    <button class="ghost" id="again-btn">Play again</button>
+    <button class="ghost" id="again-btn">Play again / change area</button>
   </div>
 </div>
 
@@ -226,6 +247,16 @@
   const ROUNDS = 5;
   const REFRESH_MS = 2000;
   const NYC_CENTER = [40.7484, -73.9857];
+
+  // Per-borough map defaults (center, zoom). Tuned to fit nicely on load.
+  const AREA_VIEWS = {
+    'All':           { center: [40.7484, -73.9857], zoom: 11 },
+    'Manhattan':     { center: [40.7831, -73.9712], zoom: 12 },
+    'Brooklyn':      { center: [40.6782, -73.9442], zoom: 12 },
+    'Queens':        { center: [40.7282, -73.8500], zoom: 11 },
+    'Bronx':         { center: [40.8448, -73.8648], zoom: 12 },
+    'Staten Island': { center: [40.5795, -74.1502], zoom: 12 },
+  };
 
   const $ = (sel) => document.querySelector(sel);
 
@@ -241,6 +272,7 @@
     guessMarker: null,
     truthMarker: null,
     line: null,
+    area: 'All',            // current filter
   };
 
   // --- Map setup ---
@@ -279,14 +311,44 @@
   }
 
   // --- Camera selection ---
+  function camerasForArea(area) {
+    return area === 'All' ? window.CAMERAS : window.CAMERAS.filter(c => c.a === area);
+  }
   function pickCameras() {
-    // Shuffle CAMERAS and take ROUNDS
-    const pool = window.CAMERAS.slice();
+    const pool = camerasForArea(state.area).slice();
     for (let i = pool.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [pool[i], pool[j]] = [pool[j], pool[i]];
     }
     return pool.slice(0, ROUNDS);
+  }
+
+  // --- Area chips ---
+  function renderAreaChips() {
+    const counts = {};
+    for (const c of window.CAMERAS) counts[c.a] = (counts[c.a] || 0) + 1;
+    counts['All'] = window.CAMERAS.length;
+    const order = ['All', 'Manhattan', 'Brooklyn', 'Queens', 'Bronx', 'Staten Island'];
+    const wrap = $('#area-chips');
+    wrap.innerHTML = '';
+    for (const a of order) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'chip' + (state.area === a ? ' active' : '');
+      btn.dataset.area = a;
+      btn.innerHTML = `${a}<span class="count">${counts[a] || 0}</span>`;
+      btn.addEventListener('click', () => {
+        state.area = a;
+        wrap.querySelectorAll('.chip').forEach(el => el.classList.toggle('active', el.dataset.area === a));
+        recentreMap();
+      });
+      wrap.appendChild(btn);
+    }
+  }
+
+  function recentreMap() {
+    const view = AREA_VIEWS[state.area] || AREA_VIEWS['All'];
+    if (state.map) state.map.setView(view.center, view.zoom, { animate: false });
   }
 
   // --- Distance + scoring ---
@@ -339,8 +401,8 @@
     if (state.line) { state.map.removeLayer(state.line); state.line = null; }
     state.guess = null;
 
-    // Reset map view
-    state.map.setView(NYC_CENTER, 11, { animate: false });
+    // Reset map view to area default
+    recentreMap();
 
     // Button
     const btn = $('#guess-btn');
@@ -427,6 +489,7 @@
   // --- Wire up ---
   document.addEventListener('DOMContentLoaded', () => {
     initMap();
+    renderAreaChips();
     $('#round-total').textContent = ROUNDS;
 
     $('#start-btn').addEventListener('click', startGame);
@@ -436,7 +499,10 @@
       if (state.round >= ROUNDS) endGame();
       else nextRound();
     });
-    $('#again-btn').addEventListener('click', startGame);
+    $('#again-btn').addEventListener('click', () => {
+      $('#final').classList.remove('show');
+      $('#intro').classList.add('show');
+    });
     $('#share-btn').addEventListener('click', copyShareCard);
 
     // Keyboard: Enter submits guess when ready
