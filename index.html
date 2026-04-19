@@ -24,7 +24,7 @@
 <meta name="twitter:image" content="https://nycguessr.vercel.app/og.png" />
 
 <meta name="theme-color" content="#0b0b0b" />
-<link rel="preconnect" href="https://webcams.nyctmc.org" />
+<!-- Camera frames proxied via /api/cam/<uuid> (same origin), so no preconnect needed -->
 
 <!-- Vercel Web Analytics (privacy-friendly, no cookies) -->
 <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
@@ -639,10 +639,17 @@
     submitGuess(true);
   }
 
+  function proxiedUrl(u) {
+    const m = u.match(/\/cameras\/([0-9a-f-]{36})\/image/i);
+    return m ? '/api/cam/' + m[1] : u;
+  }
   function startFeed(cam) {
     const img = $('#camera-feed');
+    const base = proxiedUrl(cam.u);
     const load = () => {
-      img.src = cam.u + (cam.u.includes('?') ? '&' : '?') + 't=' + Date.now();
+      // Quantize timestamp to REFRESH_MS so all users share CDN cache entries
+      const t = Math.floor(Date.now() / REFRESH_MS);
+      img.src = base + '?t=' + t;
     };
     load();
     if (state.refreshTimer) clearInterval(state.refreshTimer);
