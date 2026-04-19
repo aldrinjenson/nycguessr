@@ -123,9 +123,14 @@
   .overlay.show { display: flex; }
   .card {
     background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
-    padding: 24px; max-width: 440px; width: 100%;
+    padding: 22px; max-width: 440px; width: 100%;
     text-align: center;
+    max-height: 90vh; max-height: 90dvh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
+  .card::-webkit-scrollbar { width: 6px; }
+  .card::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 3px; }
   .card h2 { margin: 0 0 8px; font-size: 22px; font-weight: 800; }
   .card .big { font-size: 44px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; margin: 6px 0; }
   .card .big.accent { color: var(--accent); }
@@ -141,11 +146,15 @@
     background: transparent; color: var(--ink); border: 1px solid var(--line); margin-top: 10px;
   }
   .share-preview {
-    margin: 14px 0 12px; border-radius: 10px; overflow: hidden;
+    margin: 10px 0 8px; border-radius: 10px; overflow: hidden;
     border: 1px solid var(--line); background: #000;
-    display: block; width: 100%; aspect-ratio: 1200 / 630;
+    display: block; width: 100%; max-width: 340px; margin-left: auto; margin-right: auto;
+    aspect-ratio: 1200 / 630;
   }
   .share-preview img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .share-hint {
+    font-size: 11px; color: var(--muted); margin: 4px 0 6px; line-height: 1.4;
+  }
   .share-grid {
     display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px;
   }
@@ -168,12 +177,12 @@
   }
   .credit a { color: #7a7a7a; text-decoration: none; }
   .credit a:hover { color: var(--accent); }
-  .card .rounds-list { text-align: left; margin: 10px 0; font-size: 14px; color: var(--muted); }
-  .card .rounds-list .row { display: flex; justify-content: space-between; gap: 10px; padding: 8px 0; border-bottom: 1px dashed var(--line); }
+  .card .rounds-list { text-align: left; margin: 6px 0 10px; font-size: 12.5px; color: var(--muted); }
+  .card .rounds-list .row { display: flex; justify-content: space-between; gap: 10px; padding: 5px 0; border-bottom: 1px dashed var(--line); }
   .card .rounds-list .row:last-child { border-bottom: 0; }
-  .card .rounds-list .loc { color: var(--ink); font-weight: 600; line-height: 1.3; flex: 1; min-width: 0; }
-  .card .rounds-list .loc .sub { color: var(--muted); font-weight: 400; font-size: 12px; display: block; margin-top: 2px; }
-  .card .rounds-list .pts { color: var(--accent); font-variant-numeric: tabular-nums; font-weight: 800; white-space: nowrap; }
+  .card .rounds-list .loc { color: var(--ink); font-weight: 600; line-height: 1.25; flex: 1; min-width: 0; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .card .rounds-list .loc .sub { color: var(--muted); font-weight: 400; font-size: 11px; }
+  .card .rounds-list .pts { color: var(--accent); font-variant-numeric: tabular-nums; font-weight: 800; white-space: nowrap; font-size: 13px; }
 
   .intro-card { max-width: 480px; text-align: left; }
   .intro-card h2 { text-align: left; }
@@ -219,10 +228,11 @@
   }
 
   .toast {
-    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
-    background: #1e1e1e; color: var(--ink); padding: 10px 16px; border-radius: 8px;
-    border: 1px solid var(--line); font-size: 13px; z-index: 10000;
-    opacity: 0; transition: opacity 0.2s;
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: #1e1e1e; color: var(--ink); padding: 14px 20px; border-radius: 10px;
+    border: 1.5px solid var(--accent); font-size: 14px; font-weight: 600; z-index: 10000;
+    opacity: 0; transition: opacity 0.2s; box-shadow: 0 8px 30px rgba(0,0,0,0.6);
+    max-width: 90%; text-align: center;
   }
   .toast.show { opacity: 1; }
 
@@ -270,7 +280,7 @@
       <div class="footer-link">
         <a href="https://webcams.nyctmc.org" target="_blank" rel="noopener">data: nyc dot</a>
         <span>·</span>
-        <a href="https://aldrinjenson.com" target="_blank" rel="noopener">by aldrin</a>
+        <a href="https://github.com/aldrinjenson/nycguessr" target="_blank" rel="noopener">by aldrinjenson</a>
       </div>
     </div>
   </main>
@@ -317,15 +327,15 @@
       <button class="share-btn primary" id="share-native">📤 Share</button>
       <button class="share-btn neutral" id="share-download">⬇ Download PNG</button>
     </div>
-    <div class="share-grid three" style="margin-top:8px;">
+    <div class="share-hint">Tweet & Reddit don't auto-attach — the image is copied to your clipboard; paste it (⌘V / Ctrl+V) into the draft.</div>
+    <div class="share-grid three">
       <a class="share-btn twitter" id="share-twitter" target="_blank" rel="noopener">𝕏 Tweet</a>
       <a class="share-btn reddit" id="share-reddit" target="_blank" rel="noopener">🤖 Reddit</a>
       <button class="share-btn neutral" id="share-copy">📋 Copy</button>
     </div>
     <button class="ghost" id="again-btn">Play again / change area</button>
     <div class="credit">
-      made by <a href="https://aldrinjenson.com" target="_blank" rel="noopener">aldrin jenson</a>
-      · <a href="https://github.com/aldrinjenson/nycguessr" target="_blank" rel="noopener">github</a>
+      made by <a href="https://github.com/aldrinjenson/nycguessr" target="_blank" rel="noopener">aldrinjenson</a>
     </div>
   </div>
 </div>
@@ -339,7 +349,7 @@
   const ROUNDS = 5;
   const REFRESH_MS = 2000;
   const ROUND_SECONDS = 20;
-  const SITE_URL = 'https://nycguessr.aldrinjenson.com';
+  const SITE_URL = 'https://nycguessr.vercel.app';
   const NYC_CENTER = [40.7484, -73.9857];
 
   // Per-borough map defaults (center, zoom). Zoomed in enough so street labels are visible.
@@ -739,12 +749,18 @@
     VNB: 'Verrazzano Br',
     BPU: 'Belt Pkwy',
   };
+  function polishReadable(s) {
+    // Small expansions for already-readable names
+    s = s.replace(/\bFDR\b(?!\s*(Dr|Drive))/g, 'FDR Dr');
+    s = s.replace(/\bBklyn\b/gi, 'Brooklyn');
+    return s;
+  }
   function prettifyCamera(name) {
     if (!name) return name;
     // Already human-readable if it has @ / at / & / plain words
-    if (/[@&]/.test(name) || / at /i.test(name)) return name;
+    if (/[@&]/.test(name) || / at /i.test(name)) return polishReadable(name);
     // Must look like a route code
-    if (!/^C\d+-/.test(name) && !/\b[A-Z]{2,4}-\d/.test(name)) return name;
+    if (!/^C\d+-/.test(name) && !/\b[A-Z]{2,4}-\d/.test(name)) return polishReadable(name);
     let s = name;
     s = s.replace(/^C\d+-/, '');                                   // drop camera prefix
     s = s.replace(/_at_/gi, ' @ ');                                // _at_ → @
@@ -939,12 +955,12 @@
     copyCard();
   }
 
-  function toast(msg) {
+  function toast(msg, ms = 2200) {
     const t = $('#toast');
     t.textContent = msg;
     t.classList.add('show');
     clearTimeout(t._h);
-    t._h = setTimeout(() => t.classList.remove('show'), 1600);
+    t._h = setTimeout(() => t.classList.remove('show'), ms);
   }
 
   // --- Wire up ---
@@ -974,7 +990,8 @@
     // Auto-copy image alongside Twitter/Reddit clicks so the user can paste it into the post
     const intentCopy = async (label) => {
       const ok = await copyImageOnly();
-      if (ok) toast(`📋 Image copied — paste in ${label}`);
+      if (ok) toast(`📋 Image copied — now paste (⌘V / Ctrl+V) inside ${label}`, 4500);
+      else toast(`Couldn't copy image — use the ⬇ Download button instead`, 4500);
     };
     $('#share-twitter').addEventListener('click', () => intentCopy('the tweet'));
     $('#share-reddit').addEventListener('click', () => intentCopy('the Reddit post'));
