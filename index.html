@@ -162,6 +162,12 @@
   .share-btn.twitter { background: #000; border: 1px solid #333; }
   .share-btn.reddit { background: #ff4500; }
   .share-btn.neutral { background: #1f1f1f; border: 1px solid var(--line); color: var(--ink); }
+
+  .credit {
+    margin-top: 16px; font-size: 11px; color: #5a5a5a; letter-spacing: 0.02em;
+  }
+  .credit a { color: #7a7a7a; text-decoration: none; }
+  .credit a:hover { color: var(--accent); }
   .card .rounds-list { text-align: left; margin: 10px 0; font-size: 13px; color: var(--muted); }
   .card .rounds-list .row { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px dashed var(--line); }
   .card .rounds-list .row:last-child { border-bottom: 0; }
@@ -228,9 +234,12 @@
 
   .footer-link {
     position: absolute; bottom: 6px; right: 10px;
-    font-size: 10px; color: var(--muted); text-decoration: none; z-index: 500;
-    background: rgba(0,0,0,0.4); padding: 2px 6px; border-radius: 4px;
+    font-size: 10px; color: var(--muted); z-index: 500;
+    background: rgba(0,0,0,0.5); padding: 3px 8px; border-radius: 4px;
+    display: flex; gap: 6px; align-items: center;
   }
+  .footer-link a { color: var(--muted); text-decoration: none; }
+  .footer-link a:hover { color: var(--accent); }
 </style>
 </head>
 <body>
@@ -256,7 +265,11 @@
       <div class="map-actions">
         <button class="guess-btn" id="guess-btn" disabled>Drop a pin →</button>
       </div>
-      <a class="footer-link" href="https://webcams.nyctmc.org" target="_blank" rel="noopener">data: nyc dot</a>
+      <div class="footer-link">
+        <a href="https://webcams.nyctmc.org" target="_blank" rel="noopener">data: nyc dot</a>
+        <span>·</span>
+        <a href="https://aldrinjenson.com" target="_blank" rel="noopener">by aldrin</a>
+      </div>
     </div>
   </main>
 </div>
@@ -308,6 +321,10 @@
       <button class="share-btn neutral" id="share-copy">📋 Copy</button>
     </div>
     <button class="ghost" id="again-btn">Play again / change area</button>
+    <div class="credit">
+      made by <a href="https://aldrinjenson.com" target="_blank" rel="noopener">aldrin jenson</a>
+      · <a href="https://github.com/aldrinjenson/nycguessr" target="_blank" rel="noopener">github</a>
+    </div>
   </div>
 </div>
 
