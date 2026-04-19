@@ -93,7 +93,7 @@
   #map { width: 100%; height: 100%; }
   .leaflet-container { background: #0e1013; }
   /* Brighten the dark tiles so street labels + streets are legible */
-  .leaflet-tile-pane { filter: contrast(1.15) brightness(1.55) saturate(1.25); }
+  .leaflet-tile-pane { filter: contrast(1.1) brightness(1.8) saturate(1.3); }
 
   .map-actions {
     position: absolute;
@@ -842,6 +842,17 @@
     await navigator.clipboard.writeText(copy);
     toast('Text copied');
   }
+  async function copyImageOnly() {
+    try {
+      if (state.shareBlob && window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
+        await navigator.clipboard.write([
+          new ClipboardItem({ 'image/png': state.shareBlob })
+        ]);
+        return true;
+      }
+    } catch (e) { /* unsupported or blocked */ }
+    return false;
+  }
   async function nativeShare() {
     const { copy } = shareText();
     try {
@@ -893,6 +904,13 @@
     $('#share-copy').addEventListener('click', copyCard);
     $('#share-download').addEventListener('click', downloadCard);
     $('#share-native').addEventListener('click', nativeShare);
+    // Auto-copy image alongside Twitter/Reddit clicks so the user can paste it into the post
+    const intentCopy = async (label) => {
+      const ok = await copyImageOnly();
+      if (ok) toast(`📋 Image copied — paste in ${label}`);
+    };
+    $('#share-twitter').addEventListener('click', () => intentCopy('the tweet'));
+    $('#share-reddit').addEventListener('click', () => intentCopy('the Reddit post'));
     $('#mute-btn').addEventListener('click', () => setMuted(!state.muted));
 
     // Keyboard: Enter submits / advances / starts
