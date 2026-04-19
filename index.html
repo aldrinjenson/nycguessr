@@ -92,11 +92,19 @@
 
   #map { width: 100%; height: 100%; }
   .leaflet-container { background: #0e1013; }
+  /* Boost contrast on the dark tiles so street labels pop */
+  .leaflet-tile-pane { filter: contrast(1.2) brightness(1.15) saturate(1.15); }
 
   .map-actions {
-    position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%);
+    position: absolute;
+    bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    left: 50%; transform: translateX(-50%);
     z-index: 500;
     display: flex; gap: 8px;
+  }
+  @media (max-width: 820px) {
+    .map-actions { bottom: calc(24px + env(safe-area-inset-bottom, 0px)); }
+    main { padding-bottom: max(8px, env(safe-area-inset-bottom, 0px)); }
   }
   .guess-btn {
     background: var(--accent); color: #111; font-weight: 800;
@@ -132,19 +140,28 @@
   .card button.ghost {
     background: transparent; color: var(--ink); border: 1px solid var(--line); margin-top: 10px;
   }
-  .share-row {
-    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 14px;
+  .share-preview {
+    margin: 14px 0 12px; border-radius: 10px; overflow: hidden;
+    border: 1px solid var(--line); background: #000;
+    display: block; width: 100%; aspect-ratio: 1200 / 630;
   }
+  .share-preview img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .share-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px;
+  }
+  .share-grid.three { grid-template-columns: 1fr 1fr 1fr; }
   .share-btn {
     padding: 10px 8px; border-radius: 10px; font-size: 13px; font-weight: 700;
     color: #fff; display: flex; align-items: center; justify-content: center; gap: 6px;
-    text-decoration: none; transition: transform 0.1s ease, filter 0.15s;
+    text-decoration: none; transition: transform 0.1s ease, filter 0.15s; cursor: pointer;
+    border: 0; font-family: inherit;
   }
-  .share-btn:hover { filter: brightness(1.1); }
+  .share-btn:hover { filter: brightness(1.15); }
   .share-btn:active { transform: translateY(1px); }
+  .share-btn.primary { background: var(--accent); color: #0a0a0a; font-weight: 800; }
   .share-btn.twitter { background: #000; border: 1px solid #333; }
   .share-btn.reddit { background: #ff4500; }
-  .share-btn.copy { background: #1f1f1f; border: 1px solid var(--line); color: var(--ink); cursor: pointer; }
+  .share-btn.neutral { background: #1f1f1f; border: 1px solid var(--line); color: var(--ink); }
   .card .rounds-list { text-align: left; margin: 10px 0; font-size: 13px; color: var(--muted); }
   .card .rounds-list .row { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px dashed var(--line); }
   .card .rounds-list .row:last-child { border-bottom: 0; }
@@ -155,6 +172,17 @@
   .intro-card .y { color: var(--accent); }
   .intro-card p { color: var(--muted); font-size: 14px; line-height: 1.5; }
   .intro-card .kbd { background: #1e1e1e; border: 1px solid var(--line); padding: 1px 6px; border-radius: 4px; font-size: 12px; color: var(--ink); font-family: ui-monospace, Menlo, monospace; }
+
+  .input-row { margin: 8px 0 16px; }
+  .text-input {
+    width: 100%; background: #1a1a1a; color: var(--ink);
+    border: 1.5px solid #2a2a2a; border-radius: 10px;
+    padding: 10px 14px; font-size: 15px; font-weight: 600;
+    font-family: inherit; outline: none;
+    transition: border-color 0.12s, background 0.12s;
+  }
+  .text-input:focus { border-color: var(--accent); background: #222; }
+  .text-input::placeholder { color: #555; font-weight: 500; }
 
   .chips {
     display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 18px;
@@ -237,10 +265,14 @@
 <div class="overlay show" id="intro">
   <div class="card intro-card">
     <h2>NYC<span class="y">Guessr</span></h2>
-    <p>You'll see a <b>live NYC traffic camera</b>. Guess where it is by dropping a pin on the map. Closer = more points. 5 rounds.</p>
+    <p>You'll see a <b>live NYC traffic camera</b>. Guess where it is by dropping a pin on the map. Closer = more points. 5 rounds, 20s each.</p>
+    <div class="field-label">Your name</div>
+    <div class="input-row">
+      <input type="text" id="name-input" class="text-input" placeholder="Anonymous New Yorker" maxlength="24" autocomplete="off" />
+    </div>
     <div class="field-label">Area</div>
     <div class="chips" id="area-chips"></div>
-    <p style="font-size:13px;">Tip: look for subway stops, building signs, bridge silhouettes, skyline angles. Some feeds are dark/weather-ruined — next round always spins you up a fresh one.</p>
+    <p style="font-size:13px;">Tip: look for subway stops, building signs, bridge silhouettes, skyline angles.</p>
     <button id="start-btn">Play</button>
   </div>
 </div>
@@ -265,10 +297,15 @@
     <div class="sub">out of 25,000</div>
     <div class="dots" id="final-dots"></div>
     <div class="rounds-list" id="final-rounds"></div>
-    <div class="share-row">
+    <div class="share-preview"><img id="share-img" alt="score card preview" /></div>
+    <div class="share-grid" id="share-primary-row">
+      <button class="share-btn primary" id="share-native">📤 Share</button>
+      <button class="share-btn neutral" id="share-download">⬇ Download PNG</button>
+    </div>
+    <div class="share-grid three" style="margin-top:8px;">
       <a class="share-btn twitter" id="share-twitter" target="_blank" rel="noopener">𝕏 Tweet</a>
       <a class="share-btn reddit" id="share-reddit" target="_blank" rel="noopener">🤖 Reddit</a>
-      <button class="share-btn copy" id="share-copy">📋 Copy</button>
+      <button class="share-btn neutral" id="share-copy">📋 Copy</button>
     </div>
     <button class="ghost" id="again-btn">Play again / change area</button>
   </div>
@@ -282,18 +319,18 @@
 (function () {
   const ROUNDS = 5;
   const REFRESH_MS = 2000;
-  const ROUND_SECONDS = 45;
+  const ROUND_SECONDS = 20;
   const SITE_URL = 'https://nycguessr.aldrinjenson.com';
   const NYC_CENTER = [40.7484, -73.9857];
 
-  // Per-borough map defaults (center, zoom). Tuned to fit nicely on load.
+  // Per-borough map defaults (center, zoom). Zoomed in enough so street labels are visible.
   const AREA_VIEWS = {
-    'All':           { center: [40.7484, -73.9857], zoom: 11 },
-    'Manhattan':     { center: [40.7831, -73.9712], zoom: 12 },
-    'Brooklyn':      { center: [40.6782, -73.9442], zoom: 12 },
-    'Queens':        { center: [40.7282, -73.8500], zoom: 11 },
-    'Bronx':         { center: [40.8448, -73.8648], zoom: 12 },
-    'Staten Island': { center: [40.5795, -74.1502], zoom: 12 },
+    'All':           { center: [40.7484, -73.9857], zoom: 12 },
+    'Manhattan':     { center: [40.7765, -73.9770], zoom: 13 },
+    'Brooklyn':      { center: [40.6782, -73.9442], zoom: 13 },
+    'Queens':        { center: [40.7282, -73.8500], zoom: 12 },
+    'Bronx':         { center: [40.8448, -73.8648], zoom: 13 },
+    'Staten Island': { center: [40.5795, -74.1502], zoom: 13 },
   };
 
   const $ = (sel) => document.querySelector(sel);
@@ -315,6 +352,9 @@
     countdown: null,
     muted: localStorage.getItem('nycg_muted') === '1',
     audioCtx: null,
+    name: localStorage.getItem('nycg_name') || '',
+    shareBlob: null,
+    shareDataUrl: null,
   };
 
   // --- Sound (Web Audio, no assets) ---
@@ -353,6 +393,11 @@
     state.muted = m;
     localStorage.setItem('nycg_muted', m ? '1' : '0');
     $('#mute-btn').textContent = m ? '🔇' : '🔊';
+  }
+  function unlockAudio() {
+    // Must be called from a user-gesture handler
+    const ctx = audio();
+    if (ctx && ctx.state === 'suspended') ctx.resume();
   }
 
   // --- Map setup ---
@@ -462,13 +507,24 @@
 
   // --- Round lifecycle ---
   function startGame() {
+    // Persist name
+    const nameVal = ($('#name-input').value || '').trim().slice(0, 24);
+    state.name = nameVal;
+    if (nameVal) localStorage.setItem('nycg_name', nameVal);
+    else localStorage.removeItem('nycg_name');
+
     state.round = 0;
     state.score = 0;
     state.picks = pickCameras();
     state.results = [];
+    state.shareBlob = null;
+    state.shareDataUrl = null;
     $('#final').classList.remove('show');
     $('#intro').classList.remove('show');
     $('#score').textContent = '0';
+    // Confirm audio is alive from round 1
+    unlockAudio();
+    sfx.submit();
     nextRound();
   }
 
@@ -587,7 +643,7 @@
     $('#reveal').classList.add('show');
   }
 
-  function endGame() {
+  async function endGame() {
     stopFeed();
     stopTimer();
     $('#final-score').textContent = state.score.toLocaleString();
@@ -596,27 +652,196 @@
       `<div class="row"><span>${i + 1}. ${escapeHTML(r.camera.a)} — ${r.timedOut && r.points === 0 ? '⏱ timeout' : formatDistance(r.distanceM)}</span><span class="pts">${r.points.toLocaleString()}</span></div>`
     ).join('');
 
-    // Wire up share targets with the current game result
-    const dots = state.results.map(r => dotFor(r.points)).join('');
-    const areaSuffix = state.area === 'All' ? '' : ` (${state.area})`;
-    const shareText = `NYCGuessr${areaSuffix} — ${state.score.toLocaleString()}/25,000  ${dots}`;
-    const url = SITE_URL;
-    $('#share-twitter').href = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(url)}`;
-    $('#share-reddit').href  = `https://www.reddit.com/submit?title=${encodeURIComponent(shareText)}&url=${encodeURIComponent(url)}`;
+    // Wire up share targets
+    const t = shareText();
+    $('#share-twitter').href = `https://twitter.com/intent/tweet?text=${encodeURIComponent(t.tweet)}&url=${encodeURIComponent(SITE_URL)}`;
+    $('#share-reddit').href  = `https://www.reddit.com/submit?title=${encodeURIComponent(t.reddit)}&url=${encodeURIComponent(SITE_URL)}`;
+
+    // Hide native-share button if not supported
+    const nativeOK = !!(navigator.share || navigator.canShare);
+    $('#share-native').style.display = nativeOK ? '' : 'none';
+    $('#share-primary-row').style.gridTemplateColumns = nativeOK ? '1fr 1fr' : '1fr';
 
     sfx.end();
     $('#final').classList.add('show');
-  }
 
-  function copyShareCard() {
-    const dots = state.results.map(r => dotFor(r.points)).join('');
-    const areaSuffix = state.area === 'All' ? '' : ` (${state.area})`;
-    const text = `NYCGuessr${areaSuffix} — ${state.score.toLocaleString()}/25,000\n${dots}\n${SITE_URL}`;
-    navigator.clipboard.writeText(text).then(() => toast('Copied share card'));
+    // Render share card image
+    const { blob, dataUrl } = await renderShareCard();
+    state.shareBlob = blob;
+    state.shareDataUrl = dataUrl;
+    $('#share-img').src = dataUrl;
   }
 
   function escapeHTML(s) {
     return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
+  // --- Share card (canvas) ---
+  async function renderShareCard() {
+    const W = 1200, H = 630;
+    const canvas = document.createElement('canvas');
+    canvas.width = W; canvas.height = H;
+    const ctx = canvas.getContext('2d');
+
+    // Background
+    ctx.fillStyle = '#0b0b0b';
+    ctx.fillRect(0, 0, W, H);
+
+    // Subtle diagonal stripes for texture
+    ctx.save();
+    ctx.globalAlpha = 0.035;
+    ctx.strokeStyle = '#f7d417';
+    ctx.lineWidth = 2;
+    for (let i = -H; i < W; i += 24) {
+      ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i + H, H); ctx.stroke();
+    }
+    ctx.restore();
+
+    // Top yellow accent bar
+    ctx.fillStyle = '#f7d417';
+    ctx.fillRect(0, 0, W, 8);
+
+    // Title
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '800 56px -apple-system, "Helvetica Neue", Arial, sans-serif';
+    ctx.textBaseline = 'top';
+    ctx.fillText('NYC', 64, 56);
+    ctx.fillStyle = '#f7d417';
+    const nycW = ctx.measureText('NYC').width;
+    ctx.fillText('Guessr', 64 + nycW, 56);
+
+    // Subtitle: name · area
+    const playerName = (state.name || 'Anonymous').slice(0, 24);
+    const areaLabel = state.area === 'All' ? 'all 5 boroughs' : state.area;
+    ctx.fillStyle = '#9a9a9a';
+    ctx.font = '500 24px -apple-system, "Helvetica Neue", Arial, sans-serif';
+    ctx.fillText(`${playerName}  ·  ${areaLabel}`, 64, 128);
+
+    // Score (huge)
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '800 180px -apple-system, "Helvetica Neue", Arial, sans-serif';
+    const scoreText = state.score.toLocaleString();
+    ctx.fillText(scoreText, 64, 200);
+    const scoreW = ctx.measureText(scoreText).width;
+
+    // " / 25,000" muted
+    ctx.fillStyle = '#5a5a5a';
+    ctx.font = '600 48px -apple-system, "Helvetica Neue", Arial, sans-serif';
+    ctx.fillText(' / 25,000', 64 + scoreW + 8, 310);
+
+    // Dots (drawn as circles for consistent rendering rather than emoji)
+    const dotColors = state.results.map(r => {
+      if (r.points >= 4000) return '#4ade80';
+      if (r.points >= 2000) return '#facc15';
+      if (r.points >= 500)  return '#fb923c';
+      return '#525252';
+    });
+    const dotR = 28, dotGap = 20, dotY = 440;
+    dotColors.forEach((color, i) => {
+      const cx = 64 + dotR + i * (dotR * 2 + dotGap);
+      ctx.beginPath();
+      ctx.arc(cx, dotY + dotR, dotR, 0, Math.PI * 2);
+      ctx.fillStyle = color;
+      ctx.fill();
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+      ctx.stroke();
+    });
+
+    // Tagline
+    ctx.fillStyle = '#c7c7c7';
+    ctx.font = '600 22px -apple-system, "Helvetica Neue", Arial, sans-serif';
+    ctx.fillText('guess the NYC intersection from a live traffic camera', 64, 536);
+
+    // URL in yellow
+    ctx.fillStyle = '#f7d417';
+    ctx.font = '700 22px ui-monospace, "SF Mono", Menlo, monospace';
+    ctx.fillText(SITE_URL.replace(/^https?:\/\//, ''), 64, 574);
+
+    // Right-side big mark: 🗽 or subway-line bullet feel
+    ctx.save();
+    ctx.translate(W - 220, 200);
+    // Yellow MTA-like circle with round number of correct-ish guesses
+    const bigCircleR = 90;
+    ctx.beginPath();
+    ctx.arc(bigCircleR, bigCircleR, bigCircleR, 0, Math.PI * 2);
+    ctx.fillStyle = '#f7d417';
+    ctx.fill();
+    ctx.fillStyle = '#0a0a0a';
+    ctx.font = '800 90px -apple-system, "Helvetica Neue", Arial, sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    const goodCount = state.results.filter(r => r.points >= 4000).length;
+    ctx.fillText(`${goodCount}/${state.results.length}`, bigCircleR, bigCircleR + 4);
+    ctx.font = '600 16px -apple-system, "Helvetica Neue", Arial, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#9a9a9a';
+    ctx.fillText('close guesses', 0, bigCircleR * 2 + 30);
+    ctx.restore();
+
+    return new Promise((resolve) => {
+      canvas.toBlob((blob) => {
+        const dataUrl = canvas.toDataURL('image/png');
+        resolve({ blob, dataUrl });
+      }, 'image/png', 0.95);
+    });
+  }
+
+  // --- Share text ---
+  function shareText() {
+    const name = state.name ? `${state.name} ` : '';
+    const area = state.area === 'All' ? '' : ` (${state.area})`;
+    const dots = state.results.map(r => dotFor(r.points)).join('');
+    return {
+      tweet: `${name}just scored ${state.score.toLocaleString()}/25,000 on NYCGuessr${area} 🚦\n\n${dots}\n\nGuess NYC intersections from live traffic cams. Beat me 👇`,
+      reddit: `${name ? name : 'I'} scored ${state.score.toLocaleString()}/25,000 on NYCGuessr${area} — a game that asks you to guess NYC intersections from live DOT traffic cameras`,
+      copy: `🚦 NYCGuessr${area}\n${state.name ? state.name + ' — ' : ''}${state.score.toLocaleString()} / 25,000\n${dots}\n\nGuess NYC intersections from live traffic cameras.\nPlay: ${SITE_URL}`,
+    };
+  }
+
+  // --- Share actions ---
+  async function downloadCard() {
+    if (!state.shareDataUrl) return;
+    const a = document.createElement('a');
+    a.href = state.shareDataUrl;
+    a.download = `nycguessr-${state.score}.png`;
+    document.body.appendChild(a); a.click(); a.remove();
+    toast('Downloaded');
+  }
+  async function copyCard() {
+    const { copy } = shareText();
+    // Try to copy image + text to clipboard; fall back to text only
+    try {
+      if (state.shareBlob && window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
+        await navigator.clipboard.write([
+          new ClipboardItem({
+            'image/png': state.shareBlob,
+            'text/plain': new Blob([copy], { type: 'text/plain' }),
+          })
+        ]);
+        toast('Image + text copied');
+        return;
+      }
+    } catch (e) { /* fall through */ }
+    await navigator.clipboard.writeText(copy);
+    toast('Text copied');
+  }
+  async function nativeShare() {
+    const { copy } = shareText();
+    try {
+      if (state.shareBlob && navigator.canShare) {
+        const file = new File([state.shareBlob], `nycguessr-${state.score}.png`, { type: 'image/png' });
+        if (navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file], title: 'NYCGuessr', text: copy, url: SITE_URL });
+          return;
+        }
+      }
+      if (navigator.share) {
+        await navigator.share({ title: 'NYCGuessr', text: copy, url: SITE_URL });
+        return;
+      }
+    } catch (e) { if (e.name === 'AbortError') return; }
+    // No native share — fall back to copy
+    copyCard();
   }
 
   function toast(msg) {
@@ -634,6 +859,9 @@
     $('#round-total').textContent = ROUNDS;
     setMuted(state.muted);
 
+    // Restore name
+    if (state.name) $('#name-input').value = state.name;
+
     $('#start-btn').addEventListener('click', startGame);
     $('#guess-btn').addEventListener('click', () => submitGuess(false));
     $('#next-btn').addEventListener('click', () => {
@@ -645,13 +873,16 @@
       $('#final').classList.remove('show');
       $('#intro').classList.add('show');
     });
-    $('#share-copy').addEventListener('click', copyShareCard);
+    $('#share-copy').addEventListener('click', copyCard);
+    $('#share-download').addEventListener('click', downloadCard);
+    $('#share-native').addEventListener('click', nativeShare);
     $('#mute-btn').addEventListener('click', () => setMuted(!state.muted));
 
-    // Keyboard: Enter submits guess when ready
+    // Keyboard: Enter submits / advances / starts
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
-        if ($('#reveal').classList.contains('show')) $('#next-btn').click();
+        if ($('#intro').classList.contains('show')) $('#start-btn').click();
+        else if ($('#reveal').classList.contains('show')) $('#next-btn').click();
         else if (!$('#guess-btn').disabled) $('#guess-btn').click();
       }
       if (e.key === 'm' || e.key === 'M') setMuted(!state.muted);
