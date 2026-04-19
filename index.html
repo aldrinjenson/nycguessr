@@ -24,7 +24,7 @@
   button { font-family: inherit; cursor: pointer; border: 0; }
   a { color: var(--accent); }
 
-  #app { display: flex; flex-direction: column; height: 100vh; min-height: 100vh; }
+  #app { display: flex; flex-direction: column; height: 100vh; height: 100dvh; min-height: 100vh; min-height: 100dvh; }
 
   header {
     display: flex; align-items: center; justify-content: space-between;
@@ -103,8 +103,8 @@
     display: flex; gap: 8px;
   }
   @media (max-width: 820px) {
-    .map-actions { bottom: calc(24px + env(safe-area-inset-bottom, 0px)); }
-    main { padding-bottom: max(8px, env(safe-area-inset-bottom, 0px)); }
+    .map-actions { bottom: calc(56px + env(safe-area-inset-bottom, 0px)); }
+    main { padding-bottom: max(12px, env(safe-area-inset-bottom, 0px)); }
   }
   .guess-btn {
     background: var(--accent); color: #111; font-weight: 800;
@@ -348,7 +348,7 @@
 (function () {
   const ROUNDS = 5;
   const REFRESH_MS = 2000;
-  const ROUND_SECONDS = 20;
+  const ROUND_SECONDS = 30;
   const SITE_URL = 'https://nycguessr.vercel.app';
   const NYC_CENTER = [40.7484, -73.9857];
 
@@ -695,14 +695,17 @@
     $('#share-native').style.display = nativeOK ? '' : 'none';
     $('#share-primary-row').style.gridTemplateColumns = nativeOK ? '1fr 1fr' : '1fr';
 
+    // Render the share card BEFORE opening the modal so the image is ready
+    // the instant the user taps Share (prevents the "shared without image" race)
+    try {
+      const { blob, dataUrl } = await renderShareCard();
+      state.shareBlob = blob;
+      state.shareDataUrl = dataUrl;
+      $('#share-img').src = dataUrl;
+    } catch (e) { /* if canvas fails we still show the modal without preview */ }
+
     sfx.end();
     $('#final').classList.add('show');
-
-    // Render share card image
-    const { blob, dataUrl } = await renderShareCard();
-    state.shareBlob = blob;
-    state.shareDataUrl = dataUrl;
-    $('#share-img').src = dataUrl;
   }
 
   function escapeHTML(s) {
@@ -937,21 +940,35 @@
     return false;
   }
   async function nativeShare() {
+    if (!state.shareBlob) {
+      toast('Still rendering image — tap again in a sec', 2000);
+      return;
+    }
     const { copy } = shareText();
-    try {
-      if (state.shareBlob && navigator.canShare) {
-        const file = new File([state.shareBlob], `nycguessr-${state.score}.png`, { type: 'image/png' });
-        if (navigator.canShare({ files: [file] })) {
-          await navigator.share({ files: [file], title: 'NYCGuessr', text: copy, url: SITE_URL });
-          return;
-        }
-      }
-      if (navigator.share) {
-        await navigator.share({ title: 'NYCGuessr', text: copy, url: SITE_URL });
+    const file = new File([state.shareBlob], `nycguessr-${state.score}.png`, { type: 'image/png' });
+
+    // Primary: share the image file natively
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file], title: 'NYCGuessr', text: copy });
         return;
+      } catch (e) {
+        if (e.name === 'AbortError') return;
       }
-    } catch (e) { if (e.name === 'AbortError') return; }
-    // No native share — fall back to copy
+    }
+
+    // Secondary: Web Share without file (text+url only)
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: 'NYCGuessr', text: copy, url: SITE_URL });
+        toast('This browser can\'t attach images — shared as link only', 3500);
+        return;
+      } catch (e) {
+        if (e.name === 'AbortError') return;
+      }
+    }
+
+    // Final fallback: copy image + text to clipboard
     copyCard();
   }
 
