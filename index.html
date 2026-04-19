@@ -235,9 +235,10 @@
   }
   .chip:hover { color: var(--ink); border-color: #4a4a4a; background: #222; }
   .chip.active {
-    background: var(--accent); color: #0a0a0a; border-color: var(--accent);
+    background: var(--accent); color: #0a0a0a;
+    border: 2.5px solid #0a0a0a;
     font-weight: 800;
-    box-shadow: 0 0 0 3px rgba(247,212,23,0.2), 0 4px 14px rgba(247,212,23,0.25);
+    box-shadow: 0 0 0 2px var(--accent), 0 4px 14px rgba(247,212,23,0.3);
     transform: scale(1.03);
   }
   .chip.active::before {
