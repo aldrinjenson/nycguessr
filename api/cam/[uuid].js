@@ -16,6 +16,7 @@ export default async function handler(req, res) {
     const buf = Buffer.from(await upstream.arrayBuffer());
     res.setHeader('Content-Type', upstream.headers.get('content-type') || 'image/jpeg');
     res.setHeader('Cache-Control', 'public, max-age=2, s-maxage=2');
+    res.setHeader('Access-Control-Allow-Origin', '*');
     res.send(buf);
   } catch (e) {
     res.status(502).send('fetch failed');

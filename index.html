@@ -10,7 +10,7 @@
 <meta property="og:type" content="website" />
 <meta property="og:site_name" content="NYCGuessr" />
 <meta property="og:title" content="NYCGuessr — guess the NYC intersection from a live traffic camera" />
-<meta property="og:description" content="960 live NYC DOT traffic cameras. 5 rounds, 30 seconds each. Drop a pin; closer wins." />
+<meta property="og:description" content="960 live NYC DOT traffic cameras. 5 rounds, 40 seconds each. Drop a pin; closer wins." />
 <meta property="og:url" content="https://nycguessr.vercel.app" />
 <meta property="og:image" content="https://nycguessr.vercel.app/og.png" />
 <meta property="og:image:width" content="1200" />
@@ -20,7 +20,7 @@
 <!-- Twitter / X -->
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="NYCGuessr — guess the NYC intersection from a live traffic camera" />
-<meta name="twitter:description" content="960 live NYC DOT traffic cameras. 5 rounds, 30 seconds each. Drop a pin; closer wins." />
+<meta name="twitter:description" content="960 live NYC DOT traffic cameras. 5 rounds, 40 seconds each. Drop a pin; closer wins." />
 <meta name="twitter:image" content="https://nycguessr.vercel.app/og.png" />
 
 <meta name="theme-color" content="#0b0b0b" />
@@ -61,10 +61,55 @@
   header h1 .y { color: var(--accent); }
   .stats { display: flex; gap: 18px; font-variant-numeric: tabular-nums; font-size: 14px; color: var(--muted); align-items: center; }
   .stats b { color: var(--ink); font-weight: 600; }
-  .stats .timer { display: inline-flex; align-items: center; gap: 6px; }
-  .stats .timer b { color: var(--ink); font-weight: 700; min-width: 26px; display: inline-block; text-align: right; }
-  .stats .timer.low b { color: var(--bad); animation: tick-pulse 0.6s ease-in-out infinite; }
-  @keyframes tick-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.55; } }
+  .stats .timer {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 3px 10px; border-radius: 8px;
+    background: rgba(247, 212, 23, 0.1);
+    box-shadow: 0 0 0 1px rgba(247, 212, 23, 0.28);
+    transition: background 0.3s, box-shadow 0.3s;
+  }
+  .stats .timer b {
+    color: var(--accent);
+    font-weight: 700; min-width: 26px; display: inline-block; text-align: right;
+    animation: timer-breathe 1.1s ease-in-out infinite;
+    transition: color 0.3s, text-shadow 0.3s;
+  }
+  @keyframes timer-breathe {
+    0%,100% { opacity: 1; }
+    50%     { opacity: 0.55; }
+  }
+
+  /* Warn tier: amber, medium blink */
+  .stats .timer.warn {
+    background: rgba(245, 158, 11, 0.16);
+    box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.5);
+  }
+  .stats .timer.warn b {
+    color: #f59e0b;
+    text-shadow: 0 0 10px rgba(245, 158, 11, 0.65);
+    animation: timer-breathe 0.75s ease-in-out infinite;
+  }
+
+  /* Critical tier: red, flashing + scaling */
+  .stats .timer.critical {
+    background: rgba(248, 113, 113, 0.28);
+    box-shadow: 0 0 0 2px rgba(248, 113, 113, 0.7), 0 0 14px rgba(248, 113, 113, 0.35);
+    animation: crit-flash 0.4s ease-in-out infinite;
+  }
+  .stats .timer.critical b {
+    color: #fff5f5;
+    text-shadow: 0 0 14px rgba(248, 113, 113, 1);
+    font-size: 1.12em;
+    animation: crit-scale 0.4s ease-in-out infinite;
+  }
+  @keyframes crit-flash {
+    0%,100% { background: rgba(248, 113, 113, 0.28); }
+    50%     { background: rgba(248, 113, 113, 0.55); }
+  }
+  @keyframes crit-scale {
+    0%,100% { transform: scale(1); opacity: 1; }
+    50%     { transform: scale(1.18); opacity: 0.7; }
+  }
   .mute-btn {
     background: transparent; border: 1px solid var(--line); color: var(--muted);
     padding: 5px 9px; border-radius: 8px; font-size: 13px; line-height: 1;
@@ -97,8 +142,27 @@
     position: relative;
   }
 
-  .cam-wrap { flex: 1; display: flex; align-items: center; justify-content: center; background: #000; position: relative; min-height: 0; }
-  #camera-feed { width: 100%; height: 100%; object-fit: contain; display: block; }
+  .cam-wrap {
+    flex: 1; display: flex; align-items: center; justify-content: center;
+    background: #000; position: relative; min-height: 0;
+    overflow: hidden; cursor: zoom-in;
+  }
+  .cam-wrap.zoomed { cursor: zoom-out; }
+  #camera-feed {
+    width: 100%; height: 100%; object-fit: contain; display: block;
+    transform-origin: 50% 50%;
+    transition: transform 0.22s cubic-bezier(0.2, 0.6, 0.2, 1);
+    will-change: transform;
+  }
+  .cam-zoom-hint {
+    position: absolute; bottom: 10px; right: 10px;
+    background: rgba(0,0,0,0.72); border: 1px solid var(--line);
+    padding: 5px 10px; font-size: 11px; color: var(--muted);
+    border-radius: 6px; letter-spacing: 0.04em; text-transform: uppercase;
+    pointer-events: none; user-select: none;
+    opacity: 1; transition: opacity 0.3s;
+  }
+  .cam-wrap.zoomed .cam-zoom-hint { opacity: 0.4; }
   .cam-hint {
     position: absolute; top: 10px; left: 10px;
     background: rgba(0,0,0,0.6); border: 1px solid var(--line);
@@ -144,6 +208,58 @@
     display: none; align-items: center; justify-content: center; z-index: 9999; padding: 20px;
   }
   .overlay.show { display: flex; }
+
+  /* Split reveal overlay: map on top, info + Next button on bottom */
+  .overlay.reveal-split {
+    padding: 0;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    background: #0a0a0a;
+    backdrop-filter: none;
+  }
+  .reveal-map-host {
+    flex: 1 1 auto;
+    min-height: 0;
+    position: relative;
+    border-bottom: 1px solid var(--line);
+    background: #0e1013;
+  }
+  .reveal-map-host > #map { width: 100%; height: 100%; }
+  .reveal-panel {
+    flex: 0 0 auto;
+    background: var(--panel);
+    padding: 18px 20px max(18px, env(safe-area-inset-bottom, 18px));
+    text-align: center;
+    max-height: 45vh; max-height: 45dvh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .reveal-stats {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 16px; align-items: center;
+    margin-bottom: 10px;
+  }
+  .reveal-stat .sub { margin-bottom: 2px; font-size: 12px; }
+  .reveal-stat .big { font-size: 34px; margin: 0; }
+  .reveal-panel .name {
+    font-size: 18px; color: var(--ink); font-weight: 700;
+    line-height: 1.3; margin: 6px 0 12px;
+  }
+  .reveal-panel .name .area {
+    display: block; color: var(--muted); font-weight: 500;
+    font-size: 12px; margin-top: 4px; letter-spacing: 0.04em; text-transform: uppercase;
+  }
+  .reveal-panel button {
+    background: var(--accent); color: #111;
+    padding: 12px 22px; border-radius: 999px;
+    font-weight: 800; font-size: 15px; width: 100%; max-width: 420px;
+  }
+  @media (max-width: 820px) {
+    .reveal-panel { padding: 14px 16px max(14px, env(safe-area-inset-bottom, 14px)); max-height: 42dvh; }
+    .reveal-stat .big { font-size: 28px; }
+    .reveal-panel .name { font-size: 16px; margin: 4px 0 10px; }
+  }
   .card {
     background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
     padding: 22px; max-width: 440px; width: 100%;
@@ -262,11 +378,26 @@
 
   /* Markers */
   .truth-pin, .guess-pin {
-    width: 18px; height: 18px; border-radius: 50%; border: 3px solid #fff;
-    box-shadow: 0 0 0 2px rgba(0,0,0,0.6);
+    width: 22px; height: 22px; border-radius: 50%; border: 3px solid #fff;
+    box-shadow: 0 0 0 2px rgba(0,0,0,0.7), 0 0 14px rgba(0,0,0,0.6);
+    position: relative;
   }
   .truth-pin { background: var(--accent); }
   .guess-pin { background: #3b82f6; }
+  .truth-pin::after, .guess-pin::after {
+    position: absolute; top: -22px; left: 50%; transform: translateX(-50%);
+    font-size: 10px; font-weight: 800; letter-spacing: 0.04em;
+    padding: 2px 6px; border-radius: 4px; white-space: nowrap;
+    text-transform: uppercase;
+  }
+  .truth-pin::after {
+    content: "Actual";
+    background: var(--accent); color: #111;
+  }
+  .guess-pin::after {
+    content: "You";
+    background: #3b82f6; color: #fff;
+  }
 
   .footer-link {
     position: absolute; bottom: 6px; right: 10px;
@@ -291,9 +422,10 @@
   </header>
   <main>
     <div class="pane">
-      <div class="cam-wrap">
-        <img id="camera-feed" alt="live traffic camera" />
+      <div class="cam-wrap" id="cam-wrap">
+        <img id="camera-feed" alt="live traffic camera" draggable="false" />
         <div class="cam-hint"><span class="cam-live">LIVE</span> &nbsp;NYC DOT · somewhere in <span id="cam-area-hint">the 5 boroughs</span></div>
+        <div class="cam-zoom-hint" id="cam-zoom-hint">🔍 Tap to zoom</div>
       </div>
     </div>
     <div class="pane">
@@ -314,7 +446,7 @@
 <div class="overlay show" id="intro">
   <div class="card intro-card">
     <h2>NYC<span class="y">Guessr</span></h2>
-    <p>See a <b>live NYC traffic camera</b>. Drop a pin where you think it is. 5 rounds, 30s each.</p>
+    <p>See a <b>live NYC traffic camera</b>. Drop a pin where you think it is. 5 rounds, 40s each.</p>
     <div class="field-label">Your name</div>
     <div class="input-row">
       <input type="text" id="name-input" class="text-input" placeholder="Anonymous New Yorker" maxlength="24" autocomplete="off" />
@@ -325,14 +457,22 @@
   </div>
 </div>
 
-<!-- Reveal -->
-<div class="overlay" id="reveal">
-  <div class="card">
-    <div class="sub">You were</div>
-    <div class="big" id="reveal-distance">–</div>
-    <div class="sub">away</div>
-    <div class="big accent" id="reveal-points">+0</div>
-    <div class="name" id="reveal-name">–<br><span class="area" id="reveal-area"></span></div>
+<!-- Reveal (split: map on top, info + Next on bottom) -->
+<div class="overlay reveal-split" id="reveal">
+  <div class="reveal-map-host" id="reveal-map-host"></div>
+  <div class="reveal-panel">
+    <div class="reveal-stats">
+      <div class="reveal-stat">
+        <div class="sub">You were</div>
+        <div class="big" id="reveal-distance">–</div>
+        <div class="sub">away</div>
+      </div>
+      <div class="reveal-stat">
+        <div class="sub">Points</div>
+        <div class="big accent" id="reveal-points">+0</div>
+      </div>
+    </div>
+    <div class="name" id="reveal-name">–</div>
     <button id="next-btn">Next round →</button>
   </div>
 </div>
@@ -371,7 +511,7 @@
 (function () {
   const ROUNDS = 5;
   const REFRESH_MS = 2000;
-  const ROUND_SECONDS = 30;
+  const ROUND_SECONDS = 40;
   const SITE_URL = 'https://nycguessr.vercel.app';
   const NYC_CENTER = [40.7484, -73.9857];
 
@@ -437,7 +577,8 @@
     good:   () => { beep(523, 120, 'sine', 0.26); setTimeout(() => beep(659, 120, 'sine', 0.26), 110); setTimeout(() => beep(784, 180, 'sine', 0.26), 220); },
     mid:    () => { beep(440, 120, 'sine', 0.22); setTimeout(() => beep(523, 160, 'sine', 0.22), 110); },
     bad:    () => { beep(220, 180, 'sawtooth', 0.18); setTimeout(() => beep(165, 220, 'sawtooth', 0.18), 160); },
-    tick:   () => beep(1100, 28, 'sine', 0.05),
+    tick:    () => beep(1100, 38, 'sine', 0.18),
+    tickCrit:() => { beep(880, 60, 'square', 0.28); setTimeout(() => beep(660, 70, 'square', 0.22), 55); },
     end:    () => { [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => beep(f, 160, 'sine', 0.28), i * 130)); },
   };
 
@@ -476,7 +617,7 @@
     state.guess = { lat: latlng.lat, lng: latlng.lng };
     if (state.guessMarker) state.guessMarker.setLatLng(latlng);
     else {
-      const icon = L.divIcon({ className: '', html: '<div class="guess-pin"></div>', iconSize: [18, 18], iconAnchor: [9, 9] });
+      const icon = L.divIcon({ className: '', html: '<div class="guess-pin"></div>', iconSize: [22, 22], iconAnchor: [11, 11] });
       state.guessMarker = L.marker(latlng, { icon, draggable: true }).addTo(state.map);
       state.guessMarker.on('dragend', (ev) => {
         const ll = ev.target.getLatLng();
@@ -495,12 +636,64 @@
     return area === 'All' ? window.CAMERAS : window.CAMERAS.filter(c => c.a === area);
   }
   function pickCameras() {
-    const pool = camerasForArea(state.area).slice();
+    const pool = camerasForArea(state.area).filter(c => {
+      const id = uuidFromCam(c);
+      return id && !brokenCams.has(id);
+    });
     for (let i = pool.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [pool[i], pool[j]] = [pool[j], pool[i]];
     }
     return pool.slice(0, ROUNDS);
+  }
+
+  // --- Broken-camera detection (NYC DOT "Being Serviced" placeholders) ---
+  // Service screens are flat / low-variance. Real feeds have heavy color
+  // variation from cars, pedestrians, buildings, sky. We measure pixel
+  // variance in a 30x30 downsample — cheap, robust, catches frozen/black
+  // frames too.
+  const BROKEN_KEY = 'nycg_broken_cams';
+  function loadBrokenSet() {
+    try { return new Set(JSON.parse(localStorage.getItem(BROKEN_KEY) || '[]')); }
+    catch { return new Set(); }
+  }
+  function saveBrokenSet(s) {
+    try { localStorage.setItem(BROKEN_KEY, JSON.stringify([...s])); } catch {}
+  }
+  const brokenCams = loadBrokenSet();
+
+  function uuidFromCam(cam) {
+    const m = cam && cam.u && cam.u.match(/\/cameras\/([0-9a-f-]{36})\/image/i);
+    return m ? m[1] : null;
+  }
+  function imageLooksLikePlaceholder(img) {
+    const w = 30, h = 30;
+    const c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    const ctx = c.getContext('2d');
+    try { ctx.drawImage(img, 0, 0, w, h); } catch (e) { return false; }
+    let data;
+    try { data = ctx.getImageData(0, 0, w, h).data; }
+    catch (e) { return false; } // tainted canvas (CORS) — can't read, don't penalize
+    const n = w * h;
+    let sumR=0, sumG=0, sumB=0;
+    for (let i = 0; i < data.length; i += 4) { sumR+=data[i]; sumG+=data[i+1]; sumB+=data[i+2]; }
+    const avgR=sumR/n, avgG=sumG/n, avgB=sumB/n;
+    let variance = 0;
+    for (let i = 0; i < data.length; i += 4) {
+      const dr=data[i]-avgR, dg=data[i+1]-avgG, db=data[i+2]-avgB;
+      variance += dr*dr + dg*dg + db*db;
+    }
+    variance /= n;
+    return variance < 700; // empirical — real feeds routinely score 3000–30000
+  }
+  function pickReplacementCamera(excludeUuids) {
+    const pool = camerasForArea(state.area).filter(c => {
+      const id = uuidFromCam(c);
+      return id && !brokenCams.has(id) && !excludeUuids.has(id);
+    });
+    if (!pool.length) return null;
+    return pool[Math.floor(Math.random() * pool.length)];
   }
 
   // --- Area chips ---
@@ -547,8 +740,15 @@
     return Math.max(0, Math.round(p));
   }
   function formatDistance(m) {
-    if (m < 1000) return `${Math.round(m)} m`;
-    return `${(m / 1000).toFixed(m < 10000 ? 2 : 1)} km`;
+    const FT_PER_M = 3.28084;
+    const MI_PER_M = 0.000621371;
+    if (m < 60) {
+      const ft = Math.max(5, Math.round(m * FT_PER_M / 5) * 5);
+      return `${ft} ft`;
+    }
+    const mi = m * MI_PER_M;
+    if (mi < 0.1) return `${Math.round(m * FT_PER_M)} ft`;
+    return `${mi.toFixed(mi < 10 ? 2 : 1)} mi`;
   }
   function dotFor(pts) {
     if (pts >= 4000) return '🟢';
@@ -615,7 +815,7 @@
     state.countdown = setInterval(() => {
       state.secondsLeft -= 1;
       renderTimer();
-      if (state.secondsLeft <= 10 && state.secondsLeft > 0) sfx.tick();
+      if (state.secondsLeft <= 5 && state.secondsLeft > 0) sfx.tickCrit();
       if (state.secondsLeft <= 0) {
         stopTimer();
         handleTimeout();
@@ -627,7 +827,11 @@
   }
   function renderTimer() {
     $('#timer').textContent = Math.max(0, state.secondsLeft);
-    $('#timer-wrap').classList.toggle('low', state.secondsLeft <= 10);
+    const wrap = $('#timer-wrap');
+    // Default tier: always blinking yellow so players notice it from round 1.
+    // Warn tier (≤15s, >5s): amber, faster pulse. Critical tier (≤5s): red + flash + sound.
+    wrap.classList.toggle('warn', state.secondsLeft <= 15 && state.secondsLeft > 5);
+    wrap.classList.toggle('critical', state.secondsLeft <= 5 && state.secondsLeft > 0);
   }
   function handleTimeout() {
     // Auto-submit: if no pin, score 0 by dropping pin at map center far from truth
@@ -646,6 +850,29 @@
   function startFeed(cam) {
     const img = $('#camera-feed');
     const base = proxiedUrl(cam.u);
+    // Reset any zoom from the previous round
+    img.style.transform = '';
+    const wrap = document.getElementById('cam-wrap');
+    if (wrap) wrap.classList.remove('zoomed');
+    const zoomHint = document.getElementById('cam-zoom-hint');
+    if (zoomHint) zoomHint.textContent = '🔍 Tap to zoom';
+    let firstFrameChecked = false;
+    const handleFirstFrame = (likelyBroken) => {
+      if (firstFrameChecked) return;
+      firstFrameChecked = true;
+      const placeholder = likelyBroken || imageLooksLikePlaceholder(img);
+      if (!placeholder) return;
+      const uuid = uuidFromCam(cam);
+      if (uuid) { brokenCams.add(uuid); saveBrokenSet(brokenCams); }
+      const used = new Set(state.picks.map(uuidFromCam).filter(Boolean));
+      const replacement = pickReplacementCamera(used);
+      if (!replacement) return; // out of fresh cams in this area — just play it
+      state.picks[state.round - 1] = replacement;
+      if (state.refreshTimer) { clearInterval(state.refreshTimer); state.refreshTimer = null; }
+      startFeed(replacement);
+    };
+    img.onload = () => handleFirstFrame(false);
+    img.onerror = () => handleFirstFrame(true); // fetch failed (502, offline, etc.)
     const load = () => {
       // Quantize timestamp to REFRESH_MS so all users share CDN cache entries
       const t = Math.floor(Date.now() / REFRESH_MS);
@@ -674,15 +901,15 @@
 
     // If we got here via timeout without a marker, drop one at the fake guess for visual
     if (!state.guessMarker) {
-      const icon = L.divIcon({ className: '', html: '<div class="guess-pin"></div>', iconSize: [18, 18], iconAnchor: [9, 9] });
+      const icon = L.divIcon({ className: '', html: '<div class="guess-pin"></div>', iconSize: [22, 22], iconAnchor: [11, 11] });
       state.guessMarker = L.marker([state.guess.lat, state.guess.lng], { icon }).addTo(state.map);
     }
 
     // Place truth marker + line
-    const tIcon = L.divIcon({ className: '', html: '<div class="truth-pin"></div>', iconSize: [18, 18], iconAnchor: [9, 9] });
+    const tIcon = L.divIcon({ className: '', html: '<div class="truth-pin"></div>', iconSize: [22, 22], iconAnchor: [11, 11] });
     state.truthMarker = L.marker([truth.lat, truth.lng], { icon: tIcon }).addTo(state.map);
     state.line = L.polyline([[state.guess.lat, state.guess.lng], [truth.lat, truth.lng]], {
-      color: '#f7d417', weight: 2, opacity: 0.7, dashArray: '6 6'
+      color: '#f7d417', weight: 4, opacity: 0.95, dashArray: '10 10', lineCap: 'round'
     }).addTo(state.map);
 
     // Fit bounds
@@ -701,7 +928,38 @@
     $('#reveal-distance').textContent = timedOut && pts === 0 ? '⏱ Time\'s up' : formatDistance(d);
     $('#reveal-points').textContent = '+' + pts.toLocaleString();
     $('#reveal-name').innerHTML = `${escapeHTML(prettifyCamera(cam.n))}<span class="area">${escapeHTML(cam.a)}</span>`;
+    openReveal();
+  }
+
+  // Map re-parenting: the gameplay map lives inside the right .pane during play,
+  // but during reveal we move its DOM node into the reveal overlay so the map
+  // fills the top of the screen (GeoGuessr-style). Leaflet's event bindings
+  // survive reparenting; we just call invalidateSize() so it recalculates.
+  let _mapOrigParent = null, _mapOrigNext = null;
+  function openReveal() {
+    const mapEl = document.getElementById('map');
+    const host = document.getElementById('reveal-map-host');
+    if (mapEl.parentNode !== host) {
+      _mapOrigParent = mapEl.parentNode;
+      _mapOrigNext = mapEl.nextSibling;
+      host.appendChild(mapEl);
+    }
     $('#reveal').classList.add('show');
+    requestAnimationFrame(() => {
+      state.map.invalidateSize();
+      if (state.guessMarker && state.truthMarker && state.line) {
+        const group = L.featureGroup([state.guessMarker, state.truthMarker, state.line]);
+        state.map.fitBounds(group.getBounds().pad(0.35), { animate: true });
+      }
+    });
+  }
+  function closeReveal() {
+    $('#reveal').classList.remove('show');
+    const mapEl = document.getElementById('map');
+    if (_mapOrigParent && mapEl.parentNode !== _mapOrigParent) {
+      _mapOrigParent.insertBefore(mapEl, _mapOrigNext);
+    }
+    requestAnimationFrame(() => state.map.invalidateSize());
   }
 
   async function endGame() {
@@ -1025,7 +1283,7 @@
     $('#start-btn').addEventListener('click', startGame);
     $('#guess-btn').addEventListener('click', () => submitGuess(false));
     $('#next-btn').addEventListener('click', () => {
-      $('#reveal').classList.remove('show');
+      closeReveal();
       if (state.round >= ROUNDS) endGame();
       else nextRound();
     });
@@ -1045,6 +1303,30 @@
     $('#share-twitter').addEventListener('click', () => intentCopy('the tweet'));
     $('#share-reddit').addEventListener('click', () => intentCopy('the Reddit post'));
     $('#mute-btn').addEventListener('click', () => setMuted(!state.muted));
+
+    // Tap-to-zoom on camera feed. Centers the zoom on the click point so
+    // users can focus on street signs / bus numbers. Second tap resets.
+    (function wireZoom() {
+      const wrap = $('#cam-wrap');
+      const img = $('#camera-feed');
+      const hint = $('#cam-zoom-hint');
+      const ZOOM = 2.2;
+      wrap.addEventListener('click', (e) => {
+        if (wrap.classList.contains('zoomed')) {
+          img.style.transform = '';
+          wrap.classList.remove('zoomed');
+          hint.textContent = '🔍 Tap to zoom';
+          return;
+        }
+        const r = wrap.getBoundingClientRect();
+        const x = ((e.clientX - r.left) / r.width) * 100;
+        const y = ((e.clientY - r.top) / r.height) * 100;
+        img.style.transformOrigin = `${x}% ${y}%`;
+        img.style.transform = `scale(${ZOOM})`;
+        wrap.classList.add('zoomed');
+        hint.textContent = '🔍 Tap to reset';
+      });
+    })();
 
     // Keyboard: Enter submits / advances / starts
     document.addEventListener('keydown', (e) => {
