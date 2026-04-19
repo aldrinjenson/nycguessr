@@ -130,8 +130,8 @@
   .card .big { font-size: 44px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; margin: 6px 0; }
   .card .big.accent { color: var(--accent); }
   .card .sub { color: var(--muted); font-size: 14px; margin-bottom: 16px; }
-  .card .name { font-size: 15px; color: var(--ink); margin: 6px 0 18px; font-weight: 600; }
-  .card .area { color: var(--muted); font-weight: 400; font-size: 13px; }
+  .card .name { font-size: 20px; color: var(--ink); margin: 8px 0 4px; font-weight: 700; line-height: 1.25; }
+  .card .area { display: block; color: var(--muted); font-weight: 500; font-size: 13px; margin-top: 4px; margin-bottom: 14px; letter-spacing: 0.02em; text-transform: uppercase; }
   .card .dots { font-size: 22px; letter-spacing: 6px; margin: 10px 0 16px; }
   .card button {
     background: var(--accent); color: #111; padding: 12px 22px; border-radius: 999px;
@@ -168,10 +168,12 @@
   }
   .credit a { color: #7a7a7a; text-decoration: none; }
   .credit a:hover { color: var(--accent); }
-  .card .rounds-list { text-align: left; margin: 10px 0; font-size: 13px; color: var(--muted); }
-  .card .rounds-list .row { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px dashed var(--line); }
+  .card .rounds-list { text-align: left; margin: 10px 0; font-size: 14px; color: var(--muted); }
+  .card .rounds-list .row { display: flex; justify-content: space-between; gap: 10px; padding: 8px 0; border-bottom: 1px dashed var(--line); }
   .card .rounds-list .row:last-child { border-bottom: 0; }
-  .card .rounds-list .pts { color: var(--ink); font-variant-numeric: tabular-nums; font-weight: 600; }
+  .card .rounds-list .loc { color: var(--ink); font-weight: 600; line-height: 1.3; flex: 1; min-width: 0; }
+  .card .rounds-list .loc .sub { color: var(--muted); font-weight: 400; font-size: 12px; display: block; margin-top: 2px; }
+  .card .rounds-list .pts { color: var(--accent); font-variant-numeric: tabular-nums; font-weight: 800; white-space: nowrap; }
 
   .intro-card { max-width: 480px; text-align: left; }
   .intro-card h2 { text-align: left; }
@@ -656,7 +658,7 @@
     // Reveal
     $('#reveal-distance').textContent = timedOut && pts === 0 ? '⏱ Time\'s up' : formatDistance(d);
     $('#reveal-points').textContent = '+' + pts.toLocaleString();
-    $('#reveal-name').innerHTML = `${escapeHTML(cam.n)}<br><span class="area">${escapeHTML(cam.a)}</span>`;
+    $('#reveal-name').innerHTML = `${escapeHTML(prettifyCamera(cam.n))}<span class="area">${escapeHTML(cam.a)}</span>`;
     $('#reveal').classList.add('show');
   }
 
@@ -665,9 +667,13 @@
     stopTimer();
     $('#final-score').textContent = state.score.toLocaleString();
     $('#final-dots').textContent = state.results.map(r => dotFor(r.points)).join('');
-    $('#final-rounds').innerHTML = state.results.map((r, i) =>
-      `<div class="row"><span>${i + 1}. ${escapeHTML(r.camera.a)} — ${r.timedOut && r.points === 0 ? '⏱ timeout' : formatDistance(r.distanceM)}</span><span class="pts">${r.points.toLocaleString()}</span></div>`
-    ).join('');
+    $('#final-rounds').innerHTML = state.results.map((r, i) => {
+      const distStr = r.timedOut && r.points === 0 ? '⏱ timeout' : formatDistance(r.distanceM);
+      return `<div class="row">
+        <div class="loc">${i + 1}. ${escapeHTML(prettifyCamera(r.camera.n))}<span class="sub">${escapeHTML(r.camera.a)} · ${distStr} off</span></div>
+        <div class="pts">${r.points.toLocaleString()}</div>
+      </div>`;
+    }).join('');
 
     // Wire up share targets
     const t = shareText();
@@ -691,6 +697,67 @@
 
   function escapeHTML(s) {
     return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
+  // --- Pretty-print NYC DOT internal camera names ---
+  // These names use route codes like "C1-MDE-12-SB_at_Heath_Ave-Ex9". We decode
+  // the common codes so they read like "Major Deegan Expwy · SB @ Heath Ave · Exit 9".
+  const ROUTE_CODES = {
+    BQE: 'BQE',                      // Brooklyn-Queens Expwy — keep acronym
+    LIE: 'LIE',                      // Long Island Expwy — keep acronym
+    FDR: 'FDR Dr',
+    SIE: 'Staten Island Expwy',
+    WSE: 'West Shore Expwy',
+    MDE: 'Major Deegan Expwy',
+    BRE: 'Bruckner Expwy',
+    CBX: 'Cross Bronx Expwy',
+    CBE: 'Conduit Blvd',
+    GE:  'Gowanus Expwy',
+    BB:  'Brooklyn Br',
+    PE:  'Prospect Expwy',
+    GCP: 'Grand Central Pkwy',
+    MLK: 'MLK Jr Expwy',
+    VWE: 'Van Wyck Expwy',
+    WST: 'West Side Hwy',
+    KWV: 'Korean War Veterans Pkwy',
+    TNE: 'Throgs Neck Expwy',
+    TNB: 'Throgs Neck Br',
+    WBB: 'Williamsburg Br',
+    MHB: 'Manhattan Br',
+    CVE: 'Clearview Expwy',
+    HRD: 'Harlem River Dr',
+    SHE: 'Shore Pkwy',
+    HHP: 'Henry Hudson Pkwy',
+    NSP: 'Northern State Pkwy',
+    HUT: 'Hutchinson River Pkwy',
+    SMI: 'Saw Mill River Pkwy',
+    JRE: 'Jackie Robinson Pkwy',
+    OBP: 'Ocean Pkwy',
+    GWB: 'George Washington Br',
+    RBB: 'RFK Br',
+    WWB: 'Whitestone Br',
+    VNB: 'Verrazzano Br',
+    BPU: 'Belt Pkwy',
+  };
+  function prettifyCamera(name) {
+    if (!name) return name;
+    // Already human-readable if it has @ / at / & / plain words
+    if (/[@&]/.test(name) || / at /i.test(name)) return name;
+    // Must look like a route code
+    if (!/^C\d+-/.test(name) && !/\b[A-Z]{2,4}-\d/.test(name)) return name;
+    let s = name;
+    s = s.replace(/^C\d+-/, '');                                   // drop camera prefix
+    s = s.replace(/_at_/gi, ' @ ');                                // _at_ → @
+    s = s.replace(/_/g, ' ');                                      // underscores → spaces
+    s = s.replace(/\b([A-Z]{2,4})\b/g, (m, code) => ROUTE_CODES[code] || m);
+    s = s.replace(/\bEx(\d+[A-Z]?)\b/gi, 'Exit $1');
+    s = s.replace(/\s*-\s*/g, ' · ');
+    // Drop camera segment numbers like " · 12 · " or " · 06 W · "
+    s = s.replace(/\s·\s\d{1,3}\s?[WENS]?\s·\s/gi, ' · ');
+    s = s.replace(/\s+/g, ' ').trim();
+    s = s.replace(/(·\s*){2,}/g, '· ');
+    s = s.replace(/\s·\s?$/, '');  // trailing separator
+    return s;
   }
 
   // --- Share card (canvas) ---
