@@ -225,13 +225,13 @@
   .text-input::placeholder { color: #555; font-weight: 500; }
 
   .chips {
-    display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 18px;
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 8px 0 16px;
   }
   .chip {
     background: #1a1a1a; color: #c7c7c7; border: 1.5px solid #2a2a2a;
-    padding: 8px 14px; border-radius: 999px; font-size: 13px; font-weight: 600;
-    transition: all 0.14s ease; display: inline-flex; align-items: center; gap: 6px;
-    position: relative;
+    padding: 8px 10px; border-radius: 999px; font-size: 12.5px; font-weight: 600;
+    transition: all 0.14s ease; display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+    position: relative; white-space: nowrap;
   }
   .chip:hover { color: var(--ink); border-color: #4a4a4a; background: #222; }
   .chip.active {
@@ -292,7 +292,7 @@
     <div class="pane">
       <div class="cam-wrap">
         <img id="camera-feed" alt="live traffic camera" />
-        <div class="cam-hint"><span class="cam-live">LIVE</span> &nbsp;NYC DOT · somewhere in the 5 boroughs</div>
+        <div class="cam-hint"><span class="cam-live">LIVE</span> &nbsp;NYC DOT · somewhere in <span id="cam-area-hint">the 5 boroughs</span></div>
       </div>
     </div>
     <div class="pane">
@@ -313,14 +313,13 @@
 <div class="overlay show" id="intro">
   <div class="card intro-card">
     <h2>NYC<span class="y">Guessr</span></h2>
-    <p>You'll see a <b>live NYC traffic camera</b>. Guess where it is by dropping a pin on the map. Closer = more points. 5 rounds, 20s each.</p>
+    <p>See a <b>live NYC traffic camera</b>. Drop a pin where you think it is. 5 rounds, 30s each.</p>
     <div class="field-label">Your name</div>
     <div class="input-row">
       <input type="text" id="name-input" class="text-input" placeholder="Anonymous New Yorker" maxlength="24" autocomplete="off" />
     </div>
     <div class="field-label">Area</div>
     <div class="chips" id="area-chips"></div>
-    <p style="font-size:13px;">Tip: look for subway stops, building signs, bridge silhouettes, skyline angles.</p>
     <button id="start-btn">Play</button>
   </div>
 </div>
@@ -437,7 +436,7 @@
     good:   () => { beep(523, 120, 'sine', 0.26); setTimeout(() => beep(659, 120, 'sine', 0.26), 110); setTimeout(() => beep(784, 180, 'sine', 0.26), 220); },
     mid:    () => { beep(440, 120, 'sine', 0.22); setTimeout(() => beep(523, 160, 'sine', 0.22), 110); },
     bad:    () => { beep(220, 180, 'sawtooth', 0.18); setTimeout(() => beep(165, 220, 'sawtooth', 0.18), 160); },
-    tick:   () => beep(1200, 35, 'square', 0.14),
+    tick:   () => beep(1100, 28, 'sine', 0.05),
     end:    () => { [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => beep(f, 160, 'sine', 0.28), i * 130)); },
   };
 
@@ -574,6 +573,8 @@
     $('#final').classList.remove('show');
     $('#intro').classList.remove('show');
     $('#score').textContent = '0';
+    // Update live-camera hint to reflect selected area
+    $('#cam-area-hint').textContent = state.area === 'All' ? 'the 5 boroughs' : state.area;
     // Confirm audio is alive from round 1
     unlockAudio();
     sfx.submit();
