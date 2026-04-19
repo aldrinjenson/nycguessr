@@ -225,7 +225,7 @@
   .text-input::placeholder { color: #555; font-weight: 500; }
 
   .chips {
-    display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 8px 0 16px;
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin: 8px 0 16px;
   }
   .chip {
     background: #1a1a1a; color: #c7c7c7; border: 1.5px solid #2a2a2a;
@@ -921,7 +921,7 @@
     return {
       tweet: `${name}just scored ${state.score.toLocaleString()}/25,000 on NYCGuessr${area} 🚦\n\n${dots}\n\nGuess NYC intersections from live traffic cams. Beat me 👇`,
       reddit: `${name ? name : 'I'} scored ${state.score.toLocaleString()}/25,000 on NYCGuessr${area} — a game that asks you to guess NYC intersections from live DOT traffic cameras`,
-      copy: `🚦 NYCGuessr${area}\n${state.name ? state.name + ' — ' : ''}${state.score.toLocaleString()} / 25,000\n${dots}\n\nGuess NYC intersections from live traffic cameras.\nPlay: ${SITE_URL}`,
+      copy: `🚦 NYCGuessr${area}\n${state.name ? state.name + ' — ' : ''}${state.score.toLocaleString()} / 25,000\n${dots}\n\nGuess NYC intersections from live traffic cameras.`,
     };
   }
 
