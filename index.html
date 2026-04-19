@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+<title>NYCGuessr — guess the traffic camera</title>
+<meta name="description" content="A GeoGuessr-style game using live NYC traffic cameras. Guess the intersection." />
+<link rel="preconnect" href="https://webcams.nyctmc.org" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+  :root {
+    --bg: #0b0b0b;
+    --panel: #141414;
+    --ink: #f2f2f2;
+    --muted: #8a8a8a;
+    --line: #262626;
+    --accent: #f7d417;
+    --good: #4ade80;
+    --mid: #facc15;
+    --bad: #ef4444;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100%; background: var(--bg); color: var(--ink); font-family: -apple-system, BlinkMacSystemFont, "Inter", "Helvetica Neue", Arial, sans-serif; -webkit-font-smoothing: antialiased; }
+  button { font-family: inherit; cursor: pointer; border: 0; }
+  a { color: var(--accent); }
+
+  #app { display: flex; flex-direction: column; height: 100vh; min-height: 100vh; }
+
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--line);
+    gap: 12px;
+  }
+  header h1 {
+    font-size: 18px; margin: 0; letter-spacing: -0.01em; font-weight: 800;
+  }
+  header h1 .y { color: var(--accent); }
+  .stats { display: flex; gap: 18px; font-variant-numeric: tabular-nums; font-size: 14px; color: var(--muted); }
+  .stats b { color: var(--ink); font-weight: 600; }
+
+  main {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    padding: 12px;
+    flex: 1;
+    min-height: 0;
+  }
+  @media (max-width: 820px) {
+    main { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; padding: 8px; gap: 8px; }
+    header h1 { font-size: 16px; }
+    .stats { font-size: 12px; gap: 12px; }
+  }
+
+  .pane {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    position: relative;
+  }
+
+  .cam-wrap { flex: 1; display: flex; align-items: center; justify-content: center; background: #000; position: relative; min-height: 0; }
+  #camera-feed { width: 100%; height: 100%; object-fit: contain; display: block; }
+  .cam-hint {
+    position: absolute; top: 10px; left: 10px;
+    background: rgba(0,0,0,0.6); border: 1px solid var(--line);
+    padding: 4px 8px; font-size: 11px; color: var(--muted);
+    border-radius: 6px; letter-spacing: 0.04em; text-transform: uppercase;
+  }
+  .cam-live { color: var(--accent); font-weight: 700; }
+  .cam-live::before {
+    content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+    background: var(--accent); margin-right: 6px; vertical-align: middle;
+    animation: pulse 1.4s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+
+  #map { width: 100%; height: 100%; }
+  .leaflet-container { background: #0e1013; }
+
+  .map-actions {
+    position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%);
+    z-index: 500;
+    display: flex; gap: 8px;
+  }
+  .guess-btn {
+    background: var(--accent); color: #111; font-weight: 800;
+    padding: 12px 22px; border-radius: 999px; font-size: 15px;
+    letter-spacing: 0.01em; box-shadow: 0 6px 20px rgba(247,212,23,0.25);
+    transition: transform 0.1s ease, opacity 0.2s;
+  }
+  .guess-btn:active { transform: translateY(1px); }
+  .guess-btn:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
+
+  /* Overlays */
+  .overlay {
+    position: fixed; inset: 0; background: rgba(6,6,6,0.82); backdrop-filter: blur(6px);
+    display: none; align-items: center; justify-content: center; z-index: 9999; padding: 20px;
+  }
+  .overlay.show { display: flex; }
+  .card {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+    padding: 24px; max-width: 440px; width: 100%;
+    text-align: center;
+  }
+  .card h2 { margin: 0 0 8px; font-size: 22px; font-weight: 800; }
+  .card .big { font-size: 44px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; margin: 6px 0; }
+  .card .big.accent { color: var(--accent); }
+  .card .sub { color: var(--muted); font-size: 14px; margin-bottom: 16px; }
+  .card .name { font-size: 15px; color: var(--ink); margin: 6px 0 18px; font-weight: 600; }
+  .card .area { color: var(--muted); font-weight: 400; font-size: 13px; }
+  .card .dots { font-size: 22px; letter-spacing: 6px; margin: 10px 0 16px; }
+  .card button {
+    background: var(--accent); color: #111; padding: 12px 22px; border-radius: 999px;
+    font-weight: 800; font-size: 15px; margin-top: 4px; width: 100%;
+  }
+  .card button.ghost {
+    background: transparent; color: var(--ink); border: 1px solid var(--line); margin-top: 10px;
+  }
+  .card .rounds-list { text-align: left; margin: 10px 0; font-size: 13px; color: var(--muted); }
+  .card .rounds-list .row { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px dashed var(--line); }
+  .card .rounds-list .row:last-child { border-bottom: 0; }
+  .card .rounds-list .pts { color: var(--ink); font-variant-numeric: tabular-nums; font-weight: 600; }
+
+  .intro-card { max-width: 480px; text-align: left; }
+  .intro-card h2 { text-align: left; }
+  .intro-card .y { color: var(--accent); }
+  .intro-card p { color: var(--muted); font-size: 14px; line-height: 1.5; }
+  .intro-card .kbd { background: #1e1e1e; border: 1px solid var(--line); padding: 1px 6px; border-radius: 4px; font-size: 12px; color: var(--ink); font-family: ui-monospace, Menlo, monospace; }
+
+  .toast {
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    background: #1e1e1e; color: var(--ink); padding: 10px 16px; border-radius: 8px;
+    border: 1px solid var(--line); font-size: 13px; z-index: 10000;
+    opacity: 0; transition: opacity 0.2s;
+  }
+  .toast.show { opacity: 1; }
+
+  /* Markers */
+  .truth-pin, .guess-pin {
+    width: 18px; height: 18px; border-radius: 50%; border: 3px solid #fff;
+    box-shadow: 0 0 0 2px rgba(0,0,0,0.6);
+  }
+  .truth-pin { background: var(--accent); }
+  .guess-pin { background: #3b82f6; }
+
+  .footer-link {
+    position: absolute; bottom: 6px; right: 10px;
+    font-size: 10px; color: var(--muted); text-decoration: none; z-index: 500;
+    background: rgba(0,0,0,0.4); padding: 2px 6px; border-radius: 4px;
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>NYC<span class="y">Guessr</span></h1>
+    <div class="stats">
+      <div>Round <b id="round-num">1</b>/<b id="round-total">5</b></div>
+      <div>Score <b id="score">0</b></div>
+    </div>
+  </header>
+  <main>
+    <div class="pane">
+      <div class="cam-wrap">
+        <img id="camera-feed" alt="live traffic camera" />
+        <div class="cam-hint"><span class="cam-live">LIVE</span> &nbsp;NYC DOT · somewhere in the 5 boroughs</div>
+      </div>
+    </div>
+    <div class="pane">
+      <div id="map"></div>
+      <div class="map-actions">
+        <button class="guess-btn" id="guess-btn" disabled>Drop a pin →</button>
+      </div>
+      <a class="footer-link" href="https://webcams.nyctmc.org" target="_blank" rel="noopener">data: nyc dot</a>
+    </div>
+  </main>
+</div>
+
+<!-- Intro -->
+<div class="overlay show" id="intro">
+  <div class="card intro-card">
+    <h2>NYC<span class="y">Guessr</span></h2>
+    <p>You'll see a <b>live NYC traffic camera</b>. Guess where it is by dropping a pin on the map. Closer = more points. 5 rounds.</p>
+    <p style="font-size:13px;">Tip: look for subway stops, building signs, bridge silhouettes, skyline angles. Some feeds are dark/weather-ruined — you can <span class="kbd">skip</span> one per game.</p>
+    <button id="start-btn">Play</button>
+  </div>
+</div>
+
+<!-- Reveal -->
+<div class="overlay" id="reveal">
+  <div class="card">
+    <div class="sub">You were</div>
+    <div class="big" id="reveal-distance">–</div>
+    <div class="sub">away</div>
+    <div class="big accent" id="reveal-points">+0</div>
+    <div class="name" id="reveal-name">–<br><span class="area" id="reveal-area"></span></div>
+    <button id="next-btn">Next round →</button>
+  </div>
+</div>
+
+<!-- Final -->
+<div class="overlay" id="final">
+  <div class="card">
+    <h2>Game over</h2>
+    <div class="big accent" id="final-score">0</div>
+    <div class="sub">out of 25,000</div>
+    <div class="dots" id="final-dots"></div>
+    <div class="rounds-list" id="final-rounds"></div>
+    <button id="share-btn">Copy share card</button>
+    <button class="ghost" id="again-btn">Play again</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="cameras.js"></script>
+<script>
+(function () {
+  const ROUNDS = 5;
+  const REFRESH_MS = 2000;
+  const NYC_CENTER = [40.7484, -73.9857];
+
+  const $ = (sel) => document.querySelector(sel);
+
+  // --- State ---
+  const state = {
+    round: 0,
+    score: 0,
+    picks: [],              // chosen cameras this game
+    results: [],            // { points, distanceM, camera, guess }
+    guess: null,            // {lat,lng} current
+    refreshTimer: null,
+    map: null,
+    guessMarker: null,
+    truthMarker: null,
+    line: null,
+  };
+
+  // --- Map setup ---
+  function initMap() {
+    state.map = L.map('map', {
+      center: NYC_CENTER,
+      zoom: 11,
+      zoomControl: true,
+      attributionControl: false,
+      worldCopyJump: false,
+    });
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png', {
+      maxZoom: 19,
+    }).addTo(state.map);
+    L.control.attribution({ prefix: false }).addAttribution('© OSM · CARTO').addTo(state.map);
+
+    state.map.on('click', (e) => {
+      setGuess(e.latlng);
+    });
+  }
+
+  function setGuess(latlng) {
+    state.guess = { lat: latlng.lat, lng: latlng.lng };
+    if (state.guessMarker) state.guessMarker.setLatLng(latlng);
+    else {
+      const icon = L.divIcon({ className: '', html: '<div class="guess-pin"></div>', iconSize: [18, 18], iconAnchor: [9, 9] });
+      state.guessMarker = L.marker(latlng, { icon, draggable: true }).addTo(state.map);
+      state.guessMarker.on('dragend', (ev) => {
+        const ll = ev.target.getLatLng();
+        state.guess = { lat: ll.lat, lng: ll.lng };
+      });
+    }
+    const btn = $('#guess-btn');
+    btn.disabled = false;
+    btn.textContent = 'Guess';
+  }
+
+  // --- Camera selection ---
+  function pickCameras() {
+    // Shuffle CAMERAS and take ROUNDS
+    const pool = window.CAMERAS.slice();
+    for (let i = pool.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [pool[i], pool[j]] = [pool[j], pool[i]];
+    }
+    return pool.slice(0, ROUNDS);
+  }
+
+  // --- Distance + scoring ---
+  function haversineM(a, b) {
+    const R = 6371000;
+    const toRad = (d) => d * Math.PI / 180;
+    const dLat = toRad(b.lat - a.lat);
+    const dLng = toRad(b.lng - a.lng);
+    const s1 = Math.sin(dLat / 2), s2 = Math.sin(dLng / 2);
+    const h = s1 * s1 + Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * s2 * s2;
+    return 2 * R * Math.asin(Math.sqrt(h));
+  }
+  function scoreFor(distanceM) {
+    // Close guesses rewarded heavily, dies off past a few km
+    const p = 5000 * Math.exp(-distanceM / 1200);
+    return Math.max(0, Math.round(p));
+  }
+  function formatDistance(m) {
+    if (m < 1000) return `${Math.round(m)} m`;
+    return `${(m / 1000).toFixed(m < 10000 ? 2 : 1)} km`;
+  }
+  function dotFor(pts) {
+    if (pts >= 4000) return '🟢';
+    if (pts >= 2000) return '🟡';
+    if (pts >= 500) return '🟠';
+    return '⚪';
+  }
+
+  // --- Round lifecycle ---
+  function startGame() {
+    state.round = 0;
+    state.score = 0;
+    state.picks = pickCameras();
+    state.results = [];
+    $('#final').classList.remove('show');
+    $('#intro').classList.remove('show');
+    $('#score').textContent = '0';
+    nextRound();
+  }
+
+  function nextRound() {
+    if (state.round >= ROUNDS) return endGame();
+    state.round += 1;
+    $('#round-num').textContent = state.round;
+    const cam = state.picks[state.round - 1];
+
+    // Reset markers & line
+    if (state.guessMarker) { state.map.removeLayer(state.guessMarker); state.guessMarker = null; }
+    if (state.truthMarker) { state.map.removeLayer(state.truthMarker); state.truthMarker = null; }
+    if (state.line) { state.map.removeLayer(state.line); state.line = null; }
+    state.guess = null;
+
+    // Reset map view
+    state.map.setView(NYC_CENTER, 11, { animate: false });
+
+    // Button
+    const btn = $('#guess-btn');
+    btn.disabled = true;
+    btn.textContent = 'Drop a pin →';
+
+    // Start camera feed refresh
+    startFeed(cam);
+  }
+
+  function startFeed(cam) {
+    const img = $('#camera-feed');
+    const load = () => {
+      img.src = cam.u + (cam.u.includes('?') ? '&' : '?') + 't=' + Date.now();
+    };
+    load();
+    if (state.refreshTimer) clearInterval(state.refreshTimer);
+    state.refreshTimer = setInterval(load, REFRESH_MS);
+  }
+
+  function stopFeed() {
+    if (state.refreshTimer) { clearInterval(state.refreshTimer); state.refreshTimer = null; }
+  }
+
+  function submitGuess() {
+    if (!state.guess) return;
+    const cam = state.picks[state.round - 1];
+    const truth = { lat: cam.lat, lng: cam.lng };
+    const d = haversineM(state.guess, truth);
+    const pts = scoreFor(d);
+
+    state.score += pts;
+    state.results.push({ points: pts, distanceM: d, camera: cam, guess: { ...state.guess } });
+    $('#score').textContent = state.score.toLocaleString();
+
+    // Place truth marker + line
+    const tIcon = L.divIcon({ className: '', html: '<div class="truth-pin"></div>', iconSize: [18, 18], iconAnchor: [9, 9] });
+    state.truthMarker = L.marker([truth.lat, truth.lng], { icon: tIcon }).addTo(state.map);
+    state.line = L.polyline([[state.guess.lat, state.guess.lng], [truth.lat, truth.lng]], {
+      color: '#f7d417', weight: 2, opacity: 0.7, dashArray: '6 6'
+    }).addTo(state.map);
+
+    // Fit bounds
+    const group = L.featureGroup([state.guessMarker, state.truthMarker, state.line]);
+    state.map.fitBounds(group.getBounds().pad(0.35), { animate: true });
+
+    // Reveal
+    $('#reveal-distance').textContent = formatDistance(d);
+    $('#reveal-points').textContent = '+' + pts.toLocaleString();
+    $('#reveal-name').innerHTML = `${escapeHTML(cam.n)}<br><span class="area">${escapeHTML(cam.a)}</span>`;
+    $('#reveal').classList.add('show');
+
+    // Keep camera feed running in background — it's more satisfying to see the answer while it's still alive
+  }
+
+  function endGame() {
+    stopFeed();
+    $('#final-score').textContent = state.score.toLocaleString();
+    $('#final-dots').textContent = state.results.map(r => dotFor(r.points)).join('');
+    $('#final-rounds').innerHTML = state.results.map((r, i) =>
+      `<div class="row"><span>${i + 1}. ${escapeHTML(r.camera.a)} — ${formatDistance(r.distanceM)}</span><span class="pts">${r.points.toLocaleString()}</span></div>`
+    ).join('');
+    $('#final').classList.add('show');
+  }
+
+  function copyShareCard() {
+    const dots = state.results.map(r => dotFor(r.points)).join('');
+    const text = `NYCGuessr ${state.score.toLocaleString()}/25,000\n${dots}\nhttps://github.com/aldrinjenson/nycguessr`;
+    navigator.clipboard.writeText(text).then(() => toast('Copied share card'));
+  }
+
+  function escapeHTML(s) {
+    return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
+  function toast(msg) {
+    const t = $('#toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(t._h);
+    t._h = setTimeout(() => t.classList.remove('show'), 1600);
+  }
+
+  // --- Wire up ---
+  document.addEventListener('DOMContentLoaded', () => {
+    initMap();
+    $('#round-total').textContent = ROUNDS;
+
+    $('#start-btn').addEventListener('click', startGame);
+    $('#guess-btn').addEventListener('click', submitGuess);
+    $('#next-btn').addEventListener('click', () => {
+      $('#reveal').classList.remove('show');
+      if (state.round >= ROUNDS) endGame();
+      else nextRound();
+    });
+    $('#again-btn').addEventListener('click', startGame);
+    $('#share-btn').addEventListener('click', copyShareCard);
+
+    // Keyboard: Enter submits guess when ready
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        if ($('#reveal').classList.contains('show')) $('#next-btn').click();
+        else if (!$('#guess-btn').disabled) $('#guess-btn').click();
+      }
+    });
+  });
+})();
+</script>
+</body>
+</html>
