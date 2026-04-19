@@ -92,8 +92,8 @@
 
   #map { width: 100%; height: 100%; }
   .leaflet-container { background: #0e1013; }
-  /* Boost contrast on the dark tiles so street labels pop */
-  .leaflet-tile-pane { filter: contrast(1.2) brightness(1.15) saturate(1.15); }
+  /* Brighten the dark tiles so street labels + streets are legible */
+  .leaflet-tile-pane { filter: contrast(1.15) brightness(1.55) saturate(1.25); }
 
   .map-actions {
     position: absolute;
@@ -366,7 +366,7 @@
     }
     return state.audioCtx;
   }
-  function beep(freq, durMs, type = 'sine', gain = 0.08) {
+  function beep(freq, durMs, type = 'sine', gain = 0.25) {
     const ctx = audio(); if (!ctx) return;
     const t = ctx.currentTime;
     const osc = ctx.createOscillator();
@@ -379,14 +379,14 @@
     osc.start(t); osc.stop(t + durMs / 1000 + 0.02);
   }
   const sfx = {
-    pin:    () => beep(520, 90, 'triangle', 0.07),
-    hover:  () => beep(300, 40, 'sine', 0.03),
-    submit: () => { beep(440, 80, 'sine', 0.06); setTimeout(() => beep(660, 110, 'sine', 0.06), 80); },
-    good:   () => { beep(523, 120, 'sine', 0.07); setTimeout(() => beep(659, 120, 'sine', 0.07), 110); setTimeout(() => beep(784, 180, 'sine', 0.07), 220); },
-    mid:    () => { beep(440, 120, 'sine', 0.06); setTimeout(() => beep(523, 160, 'sine', 0.06), 110); },
-    bad:    () => { beep(220, 180, 'sawtooth', 0.05); setTimeout(() => beep(165, 220, 'sawtooth', 0.05), 160); },
-    tick:   () => beep(1200, 35, 'square', 0.04),
-    end:    () => { [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => beep(f, 160, 'sine', 0.08), i * 130)); },
+    pin:    () => beep(520, 90, 'triangle', 0.22),
+    hover:  () => beep(300, 40, 'sine', 0.10),
+    submit: () => { beep(440, 80, 'sine', 0.20); setTimeout(() => beep(660, 110, 'sine', 0.22), 80); },
+    good:   () => { beep(523, 120, 'sine', 0.26); setTimeout(() => beep(659, 120, 'sine', 0.26), 110); setTimeout(() => beep(784, 180, 'sine', 0.26), 220); },
+    mid:    () => { beep(440, 120, 'sine', 0.22); setTimeout(() => beep(523, 160, 'sine', 0.22), 110); },
+    bad:    () => { beep(220, 180, 'sawtooth', 0.18); setTimeout(() => beep(165, 220, 'sawtooth', 0.18), 160); },
+    tick:   () => beep(1200, 35, 'square', 0.14),
+    end:    () => { [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => beep(f, 160, 'sine', 0.28), i * 130)); },
   };
 
   function setMuted(m) {
