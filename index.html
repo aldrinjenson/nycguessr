@@ -36,8 +36,18 @@
     font-size: 18px; margin: 0; letter-spacing: -0.01em; font-weight: 800;
   }
   header h1 .y { color: var(--accent); }
-  .stats { display: flex; gap: 18px; font-variant-numeric: tabular-nums; font-size: 14px; color: var(--muted); }
+  .stats { display: flex; gap: 18px; font-variant-numeric: tabular-nums; font-size: 14px; color: var(--muted); align-items: center; }
   .stats b { color: var(--ink); font-weight: 600; }
+  .stats .timer { display: inline-flex; align-items: center; gap: 6px; }
+  .stats .timer b { color: var(--ink); font-weight: 700; min-width: 26px; display: inline-block; text-align: right; }
+  .stats .timer.low b { color: var(--bad); animation: tick-pulse 0.6s ease-in-out infinite; }
+  @keyframes tick-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.55; } }
+  .mute-btn {
+    background: transparent; border: 1px solid var(--line); color: var(--muted);
+    padding: 5px 9px; border-radius: 8px; font-size: 13px; line-height: 1;
+    transition: color 0.12s, border-color 0.12s;
+  }
+  .mute-btn:hover { color: var(--ink); border-color: #3a3a3a; }
 
   main {
     display: grid;
@@ -122,6 +132,19 @@
   .card button.ghost {
     background: transparent; color: var(--ink); border: 1px solid var(--line); margin-top: 10px;
   }
+  .share-row {
+    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 14px;
+  }
+  .share-btn {
+    padding: 10px 8px; border-radius: 10px; font-size: 13px; font-weight: 700;
+    color: #fff; display: flex; align-items: center; justify-content: center; gap: 6px;
+    text-decoration: none; transition: transform 0.1s ease, filter 0.15s;
+  }
+  .share-btn:hover { filter: brightness(1.1); }
+  .share-btn:active { transform: translateY(1px); }
+  .share-btn.twitter { background: #000; border: 1px solid #333; }
+  .share-btn.reddit { background: #ff4500; }
+  .share-btn.copy { background: #1f1f1f; border: 1px solid var(--line); color: var(--ink); cursor: pointer; }
   .card .rounds-list { text-align: left; margin: 10px 0; font-size: 13px; color: var(--muted); }
   .card .rounds-list .row { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px dashed var(--line); }
   .card .rounds-list .row:last-child { border-bottom: 0; }
@@ -134,19 +157,26 @@
   .intro-card .kbd { background: #1e1e1e; border: 1px solid var(--line); padding: 1px 6px; border-radius: 4px; font-size: 12px; color: var(--ink); font-family: ui-monospace, Menlo, monospace; }
 
   .chips {
-    display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 16px;
+    display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 18px;
   }
   .chip {
-    background: transparent; color: var(--muted); border: 1px solid var(--line);
-    padding: 6px 12px; border-radius: 999px; font-size: 13px; font-weight: 600;
-    transition: all 0.12s ease;
+    background: #1a1a1a; color: #c7c7c7; border: 1.5px solid #2a2a2a;
+    padding: 8px 14px; border-radius: 999px; font-size: 13px; font-weight: 600;
+    transition: all 0.14s ease; display: inline-flex; align-items: center; gap: 6px;
+    position: relative;
   }
-  .chip:hover { color: var(--ink); border-color: #3a3a3a; }
+  .chip:hover { color: var(--ink); border-color: #4a4a4a; background: #222; }
   .chip.active {
-    background: var(--accent); color: #111; border-color: var(--accent);
+    background: var(--accent); color: #0a0a0a; border-color: var(--accent);
+    font-weight: 800;
+    box-shadow: 0 0 0 3px rgba(247,212,23,0.2), 0 4px 14px rgba(247,212,23,0.25);
+    transform: scale(1.03);
   }
-  .chip .count { opacity: 0.6; font-weight: 500; margin-left: 4px; font-size: 11px; }
-  .chip.active .count { opacity: 0.7; }
+  .chip.active::before {
+    content: "●"; color: #0a0a0a; font-size: 10px; line-height: 1;
+  }
+  .chip .count { opacity: 0.55; font-weight: 500; font-size: 11px; }
+  .chip.active .count { opacity: 0.65; }
   .field-label {
     font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
     color: var(--muted); font-weight: 700; margin-top: 10px; margin-bottom: 4px;
@@ -180,8 +210,10 @@
   <header>
     <h1>NYC<span class="y">Guessr</span></h1>
     <div class="stats">
-      <div>Round <b id="round-num">1</b>/<b id="round-total">5</b></div>
+      <div>R <b id="round-num">1</b>/<b id="round-total">5</b></div>
+      <div class="timer" id="timer-wrap">⏱ <b id="timer">45</b>s</div>
       <div>Score <b id="score">0</b></div>
+      <button class="mute-btn" id="mute-btn" title="Toggle sound">🔊</button>
     </div>
   </header>
   <main>
@@ -233,7 +265,11 @@
     <div class="sub">out of 25,000</div>
     <div class="dots" id="final-dots"></div>
     <div class="rounds-list" id="final-rounds"></div>
-    <button id="share-btn">Copy share card</button>
+    <div class="share-row">
+      <a class="share-btn twitter" id="share-twitter" target="_blank" rel="noopener">𝕏 Tweet</a>
+      <a class="share-btn reddit" id="share-reddit" target="_blank" rel="noopener">🤖 Reddit</a>
+      <button class="share-btn copy" id="share-copy">📋 Copy</button>
+    </div>
     <button class="ghost" id="again-btn">Play again / change area</button>
   </div>
 </div>
@@ -246,6 +282,8 @@
 (function () {
   const ROUNDS = 5;
   const REFRESH_MS = 2000;
+  const ROUND_SECONDS = 45;
+  const SITE_URL = 'https://nycguessr.aldrinjenson.com';
   const NYC_CENTER = [40.7484, -73.9857];
 
   // Per-borough map defaults (center, zoom). Tuned to fit nicely on load.
@@ -273,7 +311,49 @@
     truthMarker: null,
     line: null,
     area: 'All',            // current filter
+    secondsLeft: ROUND_SECONDS,
+    countdown: null,
+    muted: localStorage.getItem('nycg_muted') === '1',
+    audioCtx: null,
   };
+
+  // --- Sound (Web Audio, no assets) ---
+  function audio() {
+    if (state.muted) return null;
+    if (!state.audioCtx) {
+      try { state.audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+      catch (e) { return null; }
+    }
+    return state.audioCtx;
+  }
+  function beep(freq, durMs, type = 'sine', gain = 0.08) {
+    const ctx = audio(); if (!ctx) return;
+    const t = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    osc.type = type; osc.frequency.setValueAtTime(freq, t);
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(gain, t + 0.008);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + durMs / 1000);
+    osc.connect(g); g.connect(ctx.destination);
+    osc.start(t); osc.stop(t + durMs / 1000 + 0.02);
+  }
+  const sfx = {
+    pin:    () => beep(520, 90, 'triangle', 0.07),
+    hover:  () => beep(300, 40, 'sine', 0.03),
+    submit: () => { beep(440, 80, 'sine', 0.06); setTimeout(() => beep(660, 110, 'sine', 0.06), 80); },
+    good:   () => { beep(523, 120, 'sine', 0.07); setTimeout(() => beep(659, 120, 'sine', 0.07), 110); setTimeout(() => beep(784, 180, 'sine', 0.07), 220); },
+    mid:    () => { beep(440, 120, 'sine', 0.06); setTimeout(() => beep(523, 160, 'sine', 0.06), 110); },
+    bad:    () => { beep(220, 180, 'sawtooth', 0.05); setTimeout(() => beep(165, 220, 'sawtooth', 0.05), 160); },
+    tick:   () => beep(1200, 35, 'square', 0.04),
+    end:    () => { [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => beep(f, 160, 'sine', 0.08), i * 130)); },
+  };
+
+  function setMuted(m) {
+    state.muted = m;
+    localStorage.setItem('nycg_muted', m ? '1' : '0');
+    $('#mute-btn').textContent = m ? '🔇' : '🔊';
+  }
 
   // --- Map setup ---
   function initMap() {
@@ -295,6 +375,7 @@
   }
 
   function setGuess(latlng) {
+    const first = !state.guess;
     state.guess = { lat: latlng.lat, lng: latlng.lng };
     if (state.guessMarker) state.guessMarker.setLatLng(latlng);
     else {
@@ -303,11 +384,13 @@
       state.guessMarker.on('dragend', (ev) => {
         const ll = ev.target.getLatLng();
         state.guess = { lat: ll.lat, lng: ll.lng };
+        sfx.pin();
       });
     }
     const btn = $('#guess-btn');
     btn.disabled = false;
     btn.textContent = 'Guess';
+    if (first) sfx.pin();
   }
 
   // --- Camera selection ---
@@ -409,8 +492,41 @@
     btn.disabled = true;
     btn.textContent = 'Drop a pin →';
 
-    // Start camera feed refresh
+    // Start camera feed refresh + timer
     startFeed(cam);
+    startTimer();
+  }
+
+  // --- Timer ---
+  function startTimer() {
+    stopTimer();
+    state.secondsLeft = ROUND_SECONDS;
+    renderTimer();
+    state.countdown = setInterval(() => {
+      state.secondsLeft -= 1;
+      renderTimer();
+      if (state.secondsLeft <= 10 && state.secondsLeft > 0) sfx.tick();
+      if (state.secondsLeft <= 0) {
+        stopTimer();
+        handleTimeout();
+      }
+    }, 1000);
+  }
+  function stopTimer() {
+    if (state.countdown) { clearInterval(state.countdown); state.countdown = null; }
+  }
+  function renderTimer() {
+    $('#timer').textContent = Math.max(0, state.secondsLeft);
+    $('#timer-wrap').classList.toggle('low', state.secondsLeft <= 10);
+  }
+  function handleTimeout() {
+    // Auto-submit: if no pin, score 0 by dropping pin at map center far from truth
+    if (!state.guess) {
+      const cam = state.picks[state.round - 1];
+      // Force a zero-score submission without a marker: fake a very-far guess
+      state.guess = { lat: cam.lat + 2, lng: cam.lng + 2 };
+    }
+    submitGuess(true);
   }
 
   function startFeed(cam) {
@@ -427,16 +543,23 @@
     if (state.refreshTimer) { clearInterval(state.refreshTimer); state.refreshTimer = null; }
   }
 
-  function submitGuess() {
+  function submitGuess(timedOut = false) {
     if (!state.guess) return;
+    stopTimer();
     const cam = state.picks[state.round - 1];
     const truth = { lat: cam.lat, lng: cam.lng };
     const d = haversineM(state.guess, truth);
-    const pts = scoreFor(d);
+    const pts = timedOut && !state.guessMarker ? 0 : scoreFor(d);
 
     state.score += pts;
-    state.results.push({ points: pts, distanceM: d, camera: cam, guess: { ...state.guess } });
+    state.results.push({ points: pts, distanceM: d, camera: cam, guess: { ...state.guess }, timedOut });
     $('#score').textContent = state.score.toLocaleString();
+
+    // If we got here via timeout without a marker, drop one at the fake guess for visual
+    if (!state.guessMarker) {
+      const icon = L.divIcon({ className: '', html: '<div class="guess-pin"></div>', iconSize: [18, 18], iconAnchor: [9, 9] });
+      state.guessMarker = L.marker([state.guess.lat, state.guess.lng], { icon }).addTo(state.map);
+    }
 
     // Place truth marker + line
     const tIcon = L.divIcon({ className: '', html: '<div class="truth-pin"></div>', iconSize: [18, 18], iconAnchor: [9, 9] });
@@ -449,28 +572,46 @@
     const group = L.featureGroup([state.guessMarker, state.truthMarker, state.line]);
     state.map.fitBounds(group.getBounds().pad(0.35), { animate: true });
 
+    // Sound based on performance
+    sfx.submit();
+    setTimeout(() => {
+      if (pts >= 4000) sfx.good();
+      else if (pts >= 1500) sfx.mid();
+      else sfx.bad();
+    }, 260);
+
     // Reveal
-    $('#reveal-distance').textContent = formatDistance(d);
+    $('#reveal-distance').textContent = timedOut && pts === 0 ? '⏱ Time\'s up' : formatDistance(d);
     $('#reveal-points').textContent = '+' + pts.toLocaleString();
     $('#reveal-name').innerHTML = `${escapeHTML(cam.n)}<br><span class="area">${escapeHTML(cam.a)}</span>`;
     $('#reveal').classList.add('show');
-
-    // Keep camera feed running in background — it's more satisfying to see the answer while it's still alive
   }
 
   function endGame() {
     stopFeed();
+    stopTimer();
     $('#final-score').textContent = state.score.toLocaleString();
     $('#final-dots').textContent = state.results.map(r => dotFor(r.points)).join('');
     $('#final-rounds').innerHTML = state.results.map((r, i) =>
-      `<div class="row"><span>${i + 1}. ${escapeHTML(r.camera.a)} — ${formatDistance(r.distanceM)}</span><span class="pts">${r.points.toLocaleString()}</span></div>`
+      `<div class="row"><span>${i + 1}. ${escapeHTML(r.camera.a)} — ${r.timedOut && r.points === 0 ? '⏱ timeout' : formatDistance(r.distanceM)}</span><span class="pts">${r.points.toLocaleString()}</span></div>`
     ).join('');
+
+    // Wire up share targets with the current game result
+    const dots = state.results.map(r => dotFor(r.points)).join('');
+    const areaSuffix = state.area === 'All' ? '' : ` (${state.area})`;
+    const shareText = `NYCGuessr${areaSuffix} — ${state.score.toLocaleString()}/25,000  ${dots}`;
+    const url = SITE_URL;
+    $('#share-twitter').href = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(url)}`;
+    $('#share-reddit').href  = `https://www.reddit.com/submit?title=${encodeURIComponent(shareText)}&url=${encodeURIComponent(url)}`;
+
+    sfx.end();
     $('#final').classList.add('show');
   }
 
   function copyShareCard() {
     const dots = state.results.map(r => dotFor(r.points)).join('');
-    const text = `NYCGuessr ${state.score.toLocaleString()}/25,000\n${dots}\nhttps://github.com/aldrinjenson/nycguessr`;
+    const areaSuffix = state.area === 'All' ? '' : ` (${state.area})`;
+    const text = `NYCGuessr${areaSuffix} — ${state.score.toLocaleString()}/25,000\n${dots}\n${SITE_URL}`;
     navigator.clipboard.writeText(text).then(() => toast('Copied share card'));
   }
 
@@ -491,9 +632,10 @@
     initMap();
     renderAreaChips();
     $('#round-total').textContent = ROUNDS;
+    setMuted(state.muted);
 
     $('#start-btn').addEventListener('click', startGame);
-    $('#guess-btn').addEventListener('click', submitGuess);
+    $('#guess-btn').addEventListener('click', () => submitGuess(false));
     $('#next-btn').addEventListener('click', () => {
       $('#reveal').classList.remove('show');
       if (state.round >= ROUNDS) endGame();
@@ -503,7 +645,8 @@
       $('#final').classList.remove('show');
       $('#intro').classList.add('show');
     });
-    $('#share-btn').addEventListener('click', copyShareCard);
+    $('#share-copy').addEventListener('click', copyShareCard);
+    $('#mute-btn').addEventListener('click', () => setMuted(!state.muted));
 
     // Keyboard: Enter submits guess when ready
     document.addEventListener('keydown', (e) => {
@@ -511,6 +654,7 @@
         if ($('#reveal').classList.contains('show')) $('#next-btn').click();
         else if (!$('#guess-btn').disabled) $('#guess-btn').click();
       }
+      if (e.key === 'm' || e.key === 'M') setMuted(!state.muted);
     });
   });
 })();
